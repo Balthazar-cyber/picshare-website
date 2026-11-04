@@ -1,97 +1,62 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#101b2d">
-
-  <title>PicShare — Share Your Moments</title>
-  <meta name="description" content="A friendly community to share photos, updates and memorable moments.">
-
+  <title>PicShare</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="styles.css">
-
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='25' fill='%23101b2d'/%3E%3Cpath d='M25 75V25h25a20 20 0 0 1 0 40H40v10z' fill='%2320b8a4'/%3E%3C/svg%3E">
 </head>
-
 <body>
 
 <header class="topbar">
   <a class="brand" href="#">
-    <span class="brand-mark">
-      <svg viewBox="0 0 40 40" aria-hidden="true">
-        <path d="M10 31V9h11a9 9 0 0 1 0 18h-5" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/>
-        <circle cx="29" cy="28" r="4" fill="currentColor"/>
-      </svg>
-    </span>
+    <b class="brand-mark">P</b>
     <span>pic<span>share</span></span>
   </a>
-
-  <p class="tagline">Your moments. Your community.</p>
-
-  <button id="signOutBtn" class="secondary-btn signout" hidden>
-    Sign out
-  </button>
+  <p class="tagline">A little space for your moments.</p>
+  <button id="signOutBtn" class="secondary-btn signout" hidden>Sign out</button>
 </header>
 
 <main class="layout">
-
   <section class="main-column">
 
-    <!-- LOGIN / SIGNUP -->
     <section id="authCard" class="card auth-card">
+      <div class="auth-art">✦　◌　✧</div>
+      <p class="eyebrow">YOUR MOMENTS, YOUR COMMUNITY</p>
+      <h1>Good moments<br><em>belong together.</em></h1>
+      <p class="intro muted">Join PicShare to share photos, little updates and moments worth remembering.</p>
 
-      <div class="auth-art">✦</div>
+      <label class="field-label" for="email">Email address</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
 
-      <p class="eyebrow">WELCOME TO PICSHARE</p>
+      <label class="field-label" for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="At least 6 characters">
 
-      <h1>Every moment<br><em>has a story.</em></h1>
+      <label class="field-label" for="displayName">Display name <small>(for new accounts)</small></label>
+      <input id="displayName" maxlength="30" autocomplete="nickname" placeholder="How should we call you?">
 
-      <p class="intro muted">
-        Connect with people, share your photos and discover moments worth remembering.
-      </p>
-
-      <div class="auth-fields">
-
-        <label class="field-label" for="email">Email address</label>
-        <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
-
-        <label class="field-label" for="password">Password</label>
-        <input id="password" type="password" autocomplete="current-password" placeholder="At least 6 characters">
-
-        <label class="field-label" for="displayName">
-          Display name <small>(for new accounts)</small>
-        </label>
-        <input id="displayName" maxlength="30" autocomplete="nickname" placeholder="Your name">
-
-        <div class="dialog-actions">
-          <button id="signInBtn" class="secondary-btn">Sign in</button>
-          <button id="signUpBtn" class="primary-btn">Create account →</button>
-        </div>
-
-        <p id="authMessage" class="status" aria-live="polite"></p>
-
+      <div class="dialog-actions">
+        <button id="signInBtn" class="secondary-btn">Sign in</button>
+        <button id="signUpBtn" class="primary-btn">Create account →</button>
       </div>
+      <p id="authMessage" class="status" aria-live="polite"></p>
     </section>
 
-    <!-- MAIN APPLICATION -->
     <section id="appArea" hidden>
 
       <div class="welcome-strip">
         <div>
-          <p class="eyebrow">YOUR COMMUNITY</p>
+          <p class="eyebrow">YOUR COMMUNITY SPACE</p>
           <h1>What's happening?</h1>
-          <p class="muted">Your next great moment starts here.</p>
+          <p class="muted">Share a thought, a photo, or a little piece of today.</p>
         </div>
-        <div class="welcome-symbol">✳</div>
+        <span class="welcome-symbol">✳</span>
       </div>
 
-      <!-- POST COMPOSER -->
-      <section class="composer card">
-
+      <section class="card composer">
         <div class="section-heading">
           <div>
             <p class="eyebrow">CREATE SOMETHING</p>
@@ -101,22 +66,16 @@
         </div>
 
         <label class="field-label" for="caption">What's on your mind?</label>
-
-        <textarea id="caption" maxlength="220" placeholder="Share something with your community..."></textarea>
+        <textarea id="caption" maxlength="220" placeholder="A little update from your day…"></textarea>
 
         <div class="composer-footer">
           <span id="charCount">0 / 220</span>
           <button id="publishBtn" class="primary-btn">Publish post →</button>
         </div>
 
-        <div class="upload-divider">
-          <span>OR ADD A PHOTO</span>
-        </div>
+        <div class="upload-divider">OR ADD A PHOTO</div>
 
-        <label class="field-label" for="photoFile">
-          Choose a photo <small>(JPG, PNG or WEBP · maximum 2 MB)</small>
-        </label>
-
+        <label class="field-label" for="photoFile">Choose JPG, PNG or WEBP <small>(maximum 2 MB)</small></label>
         <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp">
 
         <div class="composer-footer">
@@ -125,62 +84,58 @@
         </div>
 
         <img id="photoPreview" alt="Uploaded photo preview" hidden>
-
       </section>
 
-      <!-- COMMUNITY FEED -->
       <div class="feed-heading">
         <div>
-          <p class="eyebrow">COMMUNITY UPDATES</p>
+          <p class="eyebrow">FRESH FROM THE COMMUNITY</p>
           <h2>Recent moments</h2>
         </div>
-
         <span id="postCount" class="count">0 posts</span>
       </div>
 
       <section id="feed" class="feed" aria-live="polite"></section>
-
     </section>
   </section>
 
-  <!-- SIDEBAR -->
   <aside class="side-column">
 
     <section class="card profile-card">
       <div class="profile-art">
+        <img id="profilePhoto" class="profile-photo" alt="Your profile picture" hidden>
         <span id="profileInitial">P</span>
       </div>
 
       <p class="eyebrow">YOUR PROFILE</p>
       <h2 id="profileName">Not signed in</h2>
-
       <p class="muted">Making memories, one post at a time.</p>
 
       <hr>
 
-      <p class="muted">
-        ✦ Your space to connect, share and discover.
-      </p>
+      <label class="field-label" for="profileNameInput">Change display name</label>
+      <input id="profileNameInput" maxlength="30" placeholder="New display name">
+
+      <label class="field-label" for="profilePhotoInput">Change profile picture</label>
+      <input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
+
+      <button id="saveProfileBtn" class="primary-btn profile-save">
+        Save profile
+      </button>
+
+      <p id="profileStatus" class="status" aria-live="polite"></p>
     </section>
 
     <section class="card about-card">
       <div class="about-icon">✳</div>
-
-      <p class="eyebrow">ABOUT PICSHARE</p>
+      <p class="eyebrow">THE PICSHARE IDEA</p>
       <h3>Share the good stuff.</h3>
-
-      <p class="muted">
-        A community where people share photos, captions and moments from everyday life.
-      </p>
+      <p class="muted">A photo community where members can share pictures and captions, and discover moments from others.</p>
     </section>
 
     <p class="side-foot">PICSHARE · MADE FOR SHARING</p>
-
   </aside>
-
 </main>
 
 <script type="module" src="app.js"></script>
-
 </body>
 </html>
