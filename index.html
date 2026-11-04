@@ -1,44 +1,10 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff"><title>PicShare</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <header class="topbar"><a class="brand" href="#">PicShare</a><span class="tagline">A little space for your moments</span><button id="signOutBtn" class="secondary-btn" hidden>Sign out</button></header>
-  <main class="layout">
-    <section class="main-column">
-      <section id="authCard" class="card auth-card">
-        <p class="eyebrow">WELCOME TO PICSHARE</p><h1>Join the community</h1>
-        <p class="muted">Create an account or sign in to share captions with other members.</p>
-        <label class="field-label" for="email">Email</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com">
-        <label class="field-label" for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="At least 6 characters">
-        <label class="field-label" for="displayName">Display name (for new accounts)</label><input id="displayName" maxlength="30" autocomplete="nickname" placeholder="Your name">
-        <div class="dialog-actions"><button id="signInBtn" class="secondary-btn">Sign in</button><button id="signUpBtn" class="primary-btn">Create account</button></div>
-        <p id="authMessage" class="status" aria-live="polite"></p>
-      </section>
-      <section id="appArea" hidden>
-        <section class="composer card">
-          <div class="section-heading"><div><p class="eyebrow">CREATE</p><h1>Share a moment</h1></div><span class="sparkle">✦</span></div>
-          <label class="field-label" for="caption">Your message</label>
-          <textarea id="caption" maxlength="220" placeholder="What would you like to share?"></textarea>
-          <div class="composer-footer"><span id="charCount">0 / 220</span><button id="publishBtn" class="primary-btn">Publish</button></div>
-          <p class="privacy-note">Text posts are shared through Firestore.</p>
-        <hr>
-        <p class="eyebrow">PHOTO SHARING</p><h2>Upload a photo</h2>
-        <label class="field-label" for="photoFile">Choose JPG, PNG, or WEBP (maximum 2 MB)</label>
-        <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp">
-        <div class="composer-footer"><span id="photoUploadStatus" aria-live="polite"></span><button id="uploadPhotoBtn" class="primary-btn">Upload photo</button></div>
-        <img id="photoPreview" alt="Uploaded photo preview" hidden style="max-width:100%;border-radius:12px;margin-top:12px">
-        </section>
-        <div class="feed-heading"><div><p class="eyebrow">YOUR COMMUNITY</p><h2>Recent moments</h2></div><span id="postCount" class="count">0 posts</span></div>
-        <section id="feed" class="feed" aria-live="polite"></section>
-      </section>
-    </section>
-    <aside class="side-column"><section class="card profile-card"><div class="profile-art"><span id="profileInitial">P</span></div><p class="eyebrow">YOUR PROFILE</p><h2 id="profileName">Not signed in</h2><p class="muted">Making memories, one post at a time.</p></section>
-      <section class="card about-card"><p class="eyebrow">ABOUT PICSHARE</p><h3>Share the good stuff.</h3><p class="muted">A photo community where members can share pictures and captions.</p></section>
-    </aside>
-  </main>
-  <script type="module" src="app.js"></script>
-</body></html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101b2d"><title>PicShare</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"></head>
+<body><header class="topbar"><a class="brand" href="#"><b class="brand-mark">P</b><span>pic<span>share</span></span></a><p class="tagline">A little space for your moments.</p><button id="signOutBtn" class="secondary-btn signout" hidden>Sign out</button></header>
+<main class="layout"><section class="main-column">
+<section id="authCard" class="card auth-card"><div class="auth-art">✦　◌　✧</div><p class="eyebrow">YOUR MOMENTS, YOUR COMMUNITY</p><h1>Good moments<br><em>belong together.</em></h1><p class="intro muted">Join PicShare to share photos, little updates and moments worth remembering.</p>
+<label class="field-label" for="email">Email address</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com"><label class="field-label" for="password">Password</label><input id="password" type="password" autocomplete="current-password" placeholder="At least 6 characters"><label class="field-label" for="displayName">Display name <small>(for new accounts)</small></label><input id="displayName" maxlength="30" autocomplete="nickname" placeholder="How should we call you?"><div class="dialog-actions"><button id="signInBtn" class="secondary-btn">Sign in</button><button id="signUpBtn" class="primary-btn">Create account →</button></div><p id="authMessage" class="status" aria-live="polite"></p></section>
+<section id="appArea" hidden><div class="welcome-strip"><div><p class="eyebrow">YOUR COMMUNITY SPACE</p><h1>What's happening?</h1><p class="muted">Share a thought, a photo, or a little piece of today.</p></div><span class="welcome-symbol">✳</span></div>
+<section class="composer card"><div class="section-heading"><div><p class="eyebrow">CREATE SOMETHING</p><h2>Share a moment</h2></div><span class="sparkle">✦</span></div><label class="field-label" for="caption">What's on your mind?</label><textarea id="caption" maxlength="220" placeholder="A little update from your day…"></textarea><div class="composer-footer"><span id="charCount">0 / 220</span><button id="publishBtn" class="primary-btn">Publish post →</button></div><div class="upload-divider">OR ADD A PHOTO</div><label class="field-label" for="photoFile">Choose JPG, PNG or WEBP <small>(maximum 2 MB)</small></label><input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp"><div class="composer-footer"><span id="photoUploadStatus" aria-live="polite"></span><button id="uploadPhotoBtn" class="secondary-btn">Upload photo</button></div><img id="photoPreview" alt="Uploaded photo preview" hidden></section>
+<div class="feed-heading"><div><p class="eyebrow">FRESH FROM THE COMMUNITY</p><h2>Recent moments</h2></div><span id="postCount" class="count">0 posts</span></div><section id="feed" class="feed" aria-live="polite"></section></section></section>
+<aside class="side-column"><section class="card profile-card"><div class="profile-art"><span id="profileInitial">P</span></div><p class="eyebrow">YOUR SPACE</p><h2 id="profileName">Not signed in</h2><p class="muted">Making memories, one post at a time.</p><hr><p class="muted">✦ A friendly place to share the moments that make your day.</p></section><section class="card about-card"><div class="about-icon">✳</div><p class="eyebrow">THE PICSHARE IDEA</p><h3>Share the good stuff.</h3><p class="muted">A photo community where members can share pictures and captions, and discover moments from others.</p></section><p class="side-foot">PICSHARE · MADE FOR SHARING</p></aside></main><script type="module" src="app.js"></script></body></html>
