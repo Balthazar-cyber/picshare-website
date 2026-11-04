@@ -26,7 +26,8 @@ import {
 import { firebaseConfig } from "./firebase-config.js";
 
 const SUPABASE_URL = "https://rcfyzegwkopysdmrqiei.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -46,6 +47,62 @@ const safe = value =>
 let stopFeed = null;
 let stopLikes = [];
 let stopComments = [];
+
+// PROFILE MENU ELEMENTS
+
+const profileMenuBtn = $("profileMenuBtn");
+const profileDropdown = $("profileDropdown");
+const profileMenuWrap = $("profileMenuWrap");
+
+// CLOSE PROFILE MENU
+
+function closeProfileMenu() {
+  if (profileDropdown) profileDropdown.hidden = true;
+
+  profileMenuBtn?.setAttribute("aria-expanded", "false");
+}
+
+// OPEN AND CLOSE PROFILE MENU
+
+profileMenuBtn?.addEventListener("click", event => {
+  event.stopPropagation();
+
+  const opening = profileDropdown.hidden;
+  profileDropdown.hidden = !opening;
+
+  profileMenuBtn.setAttribute("aria-expanded", String(opening));
+});
+
+// CLOSE MENU WHEN CLICKING OUTSIDE
+
+document.addEventListener("click", event => {
+  if (
+    profileMenuWrap &&
+    !profileMenuWrap.contains(event.target)
+  ) {
+    closeProfileMenu();
+  }
+});
+
+// MY PROFILE
+
+$("myProfileLink")?.addEventListener("click", () => {
+  closeProfileMenu();
+
+  $("profileCard")?.scrollIntoView({
+    behavior: "smooth"
+  });
+});
+
+// EDIT PROFILE
+
+$("editProfileLink")?.addEventListener("click", () => {
+  closeProfileMenu();
+
+  $("editProfileCard")?.scrollIntoView({
+    behavior: "smooth"
+  });
+});
 
 // MESSAGES
 
@@ -147,6 +204,7 @@ async function loadProfile(user) {
 
   } else {
     if (avatar) avatar.remove();
+
     $("profileInitial").hidden = false;
   }
 }
@@ -172,6 +230,7 @@ $("saveProfileBtn").addEventListener("click", async () => {
 
   const button = $("saveProfileBtn");
   button.disabled = true;
+
   $("profileStatus").textContent = "Saving profile...";
 
   try {
@@ -193,7 +252,9 @@ $("saveProfileBtn").addEventListener("click", async () => {
     }, { merge: true });
 
     $("profilePhotoInput").value = "";
-    $("profileStatus").textContent = "Profile saved successfully!";
+
+    $("profileStatus").textContent =
+      "Profile saved successfully!";
 
     await loadProfile(user);
 
@@ -262,49 +323,9 @@ $("signInBtn").addEventListener("click", async () => {
 
 // SIGN OUT
 
-$("signOutBtn").addEventListener("click", () => signOut(auth));
-
-// PROFILE DROPDOWN MENU
-
-const profileMenuBtn = $("profileMenuBtn");
-const profileDropdown = $("profileDropdown");
-const profileMenuWrap = $("profileMenuWrap");
-
-profileMenuBtn?.addEventListener("click", () => {
-  const opening = profileDropdown.hidden;
-
-  profileDropdown.hidden = !opening;
-  profileMenuBtn.setAttribute("aria-expanded", String(opening));
-});
-
-$("myProfileLink")?.addEventListener("click", () => {
-  profileDropdown.hidden = true;
-  profileMenuBtn?.setAttribute("aria-expanded", "false");
-
-  $("profileCard").scrollIntoView({
-    behavior: "smooth"
-  });
-});
-
-$("editProfileLink")?.addEventListener("click", () => {
-  profileDropdown.hidden = true;
-  profileMenuBtn?.setAttribute("aria-expanded", "false");
-
-  $("editProfileCard").scrollIntoView({
-    behavior: "smooth"
-  });
-});
-
-// CLOSE MENU WHEN CLICKING OUTSIDE
-
-document.addEventListener("click", event => {
-  if (profileMenuWrap && !profileMenuWrap.contains(event.target)) {
-    if (profileDropdown) {
-      profileDropdown.hidden = true;
-    }
-
-    profileMenuBtn?.setAttribute("aria-expanded", "false");
-  }
+$("signOutBtn").addEventListener("click", async () => {
+  closeProfileMenu();
+  await signOut(auth);
 });
 
 // PHOTO UPLOAD FOR POSTS
@@ -318,6 +339,7 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
 
   const button = $("uploadPhotoBtn");
   button.disabled = true;
+
   $("photoUploadStatus").textContent = "Uploading...";
 
   try {
@@ -340,6 +362,7 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
 
     $("photoPreview").src = imageUrl;
     $("photoPreview").hidden = false;
+
     $("photoFile").value = "";
     $("caption").value = "";
     $("charCount").textContent = "0 / 220";
@@ -524,240 +547,255 @@ function startFeed() {
     orderBy("createdAt", "desc")
   );
 
-  stopFeed = onSnapshot(q, snapshot => {
-    stopAllListeners();
+  stopFeed = onSnapshot(
+    q,
 
-    const posts = snapshot.docs;
+    snapshot => {
+      stopAllListeners();
 
-    $("postCount").textContent =
-      `${posts.length} ${posts.length === 1 ? "post" : "posts"}`;
+      const posts = snapshot.docs;
 
-    if (!posts.length) {
-      $("feed").innerHTML =
-        '<div class="card empty"><b>Your feed is waiting.</b> Be the first to share a message.</div>';
-      return;
-    }
+      $("postCount").textContent =
+        `${posts.length} ${posts.length === 1 ? "post" : "posts"}`;
 
-    $("feed").innerHTML = posts.map(postDoc => {
-      const p = postDoc.data();
-      const postId = postDoc.id;
+      if (!posts.length) {
+        $("feed").innerHTML =
+          '<div class="card empty"><b>Your feed is waiting.</b> Be the first to share a message.</div>';
+        return;
+      }
 
-      const date = p.createdAt?.toDate
-        ? p.createdAt.toDate().toLocaleString()
-        : "Just now";
+      $("feed").innerHTML = posts.map(postDoc => {
+        const p = postDoc.data();
+        const postId = postDoc.id;
 
-      const photo = p.imageUrl
-        ? `<img class="post-image" src="${safe(p.imageUrl)}" alt="Photo shared by ${safe(p.name || "PicShare member")}" loading="lazy">`
-        : "";
+        const date = p.createdAt?.toDate
+          ? p.createdAt.toDate().toLocaleString()
+          : "Just now";
 
-      const caption = p.caption
-        ? `<div class="post-caption">${safe(p.caption)}</div>`
-        : "";
+        const photo = p.imageUrl
+          ? `<img class="post-image" src="${safe(p.imageUrl)}" alt="Photo shared by ${safe(p.name || "PicShare member")}" loading="lazy">`
+          : "";
 
-      return `
-        <article class="card post">
-          <div class="post-head">
-            ${avatarHTML(p.name, p.photoURL, "mini-avatar")}
+        const caption = p.caption
+          ? `<div class="post-caption">${safe(p.caption)}</div>`
+          : "";
 
-            <div>
-              <div class="post-author">
-                ${safe(p.name || "PicShare member")}
-              </div>
+        return `
+          <article class="card post">
 
-              <div class="post-date">
-                ${safe(date)}
-              </div>
-            </div>
-          </div>
+            <div class="post-head">
+              ${avatarHTML(p.name, p.photoURL, "mini-avatar")}
 
-          ${photo}
-          ${caption}
-
-          <div class="post-actions">
-            <button
-              type="button"
-              class="like-button"
-              data-post-id="${safe(postId)}"
-              data-liked="false"
-            >
-              🤍 Like <span class="like-count">0</span>
-            </button>
-          </div>
-
-          <div class="comments-section">
-            <div class="comments-title">💬 Comments</div>
-
-            <div
-              class="comments-list"
-              data-comments-post="${safe(postId)}"
-            >
-              <span class="muted">Loading comments...</span>
-            </div>
-
-            <form
-              class="comment-form"
-              data-comment-form="${safe(postId)}"
-            >
-              <input
-                type="text"
-                maxlength="500"
-                placeholder="Write a comment..."
-                aria-label="Write a comment"
-                required
-              >
-
-              <button type="submit">Send</button>
-            </form>
-          </div>
-        </article>
-      `;
-    }).join("");
-
-    // CONNECT LIKE BUTTONS
-
-    document.querySelectorAll(".like-button").forEach(button => {
-      button.addEventListener("click", () => {
-        toggleLike(button.dataset.postId, button);
-      });
-    });
-
-    // CONNECT COMMENT FORMS
-
-    document.querySelectorAll(".comment-form").forEach(form => {
-      form.addEventListener("submit", event => {
-        event.preventDefault();
-
-        addComment(
-          form.dataset.commentForm,
-          form.querySelector("input"),
-          form.querySelector("button")
-        );
-      });
-    });
-
-    // LIVE LIKE COUNTS
-
-    posts.forEach(postDoc => {
-      const postId = postDoc.id;
-
-      const likesRef = collection(
-        db,
-        "posts",
-        postId,
-        "likes"
-      );
-
-      const stop = onSnapshot(
-        likesRef,
-        likesSnapshot => {
-          const button = [...document.querySelectorAll(".like-button")]
-            .find(item => item.dataset.postId === postId);
-
-          if (!button) return;
-
-          const user = auth.currentUser;
-
-          const liked = user
-            ? likesSnapshot.docs.some(like => like.id === user.uid)
-            : false;
-
-          button.dataset.liked = String(liked);
-
-          button.innerHTML =
-            `${liked ? "❤️ Unlike" : "🤍 Like"} <span class="like-count">${likesSnapshot.size}</span>`;
-        },
-        error => console.error("Likes could not load:", error)
-      );
-
-      stopLikes.push(stop);
-    });
-
-    // LIVE COMMENTS
-
-    posts.forEach(postDoc => {
-      const postId = postDoc.id;
-
-      const commentsRef = query(
-        collection(db, "posts", postId, "comments"),
-        orderBy("createdAt", "asc")
-      );
-
-      const stop = onSnapshot(
-        commentsRef,
-        commentsSnapshot => {
-          const container = document.querySelector(
-            `[data-comments-post="${postId}"]`
-          );
-
-          if (!container) return;
-
-          if (commentsSnapshot.empty) {
-            container.innerHTML =
-              '<p class="muted">No comments yet. Be the first!</p>';
-            return;
-          }
-
-          container.innerHTML = commentsSnapshot.docs.map(commentDoc => {
-            const c = commentDoc.data();
-            const commentId = commentDoc.id;
-
-            const canDelete =
-              auth.currentUser &&
-              (
-                auth.currentUser.uid === c.uid ||
-                auth.currentUser.uid === "VXDMuU17gifoBqTkbpC55Xre9242"
-              );
-
-            return `
-              <div class="comment-item">
-                ${avatarHTML(c.name, c.photoURL, "comment-avatar")}
-
-                <div class="comment-content">
-                  <strong>${safe(c.name || "PicShare member")}</strong>
-                  <p>${safe(c.text)}</p>
+              <div>
+                <div class="post-author">
+                  ${safe(p.name || "PicShare member")}
                 </div>
 
-                ${canDelete ? `
-                  <button
-                    class="delete-comment"
-                    type="button"
-                    data-comment-id="${safe(commentId)}"
-                    data-post-id="${safe(postId)}"
-                  >Delete</button>
-                ` : ""}
+                <div class="post-date">
+                  ${safe(date)}
+                </div>
               </div>
-            `;
-          }).join("");
+            </div>
 
-          container.querySelectorAll(".delete-comment").forEach(button => {
-            button.addEventListener("click", () => {
-              deleteComment(
-                button.dataset.postId,
-                button.dataset.commentId
-              );
-            });
-          });
-        },
-        error => {
-          console.error("Comments could not load:", error);
+            ${photo}
+            ${caption}
 
-          const container = document.querySelector(
-            `[data-comments-post="${postId}"]`
+            <div class="post-actions">
+              <button
+                type="button"
+                class="like-button"
+                data-post-id="${safe(postId)}"
+                data-liked="false"
+              >
+                🤍 Like <span class="like-count">0</span>
+              </button>
+            </div>
+
+            <div class="comments-section">
+              <div class="comments-title">💬 Comments</div>
+
+              <div
+                class="comments-list"
+                data-comments-post="${safe(postId)}"
+              >
+                <span class="muted">Loading comments...</span>
+              </div>
+
+              <form
+                class="comment-form"
+                data-comment-form="${safe(postId)}"
+              >
+                <input
+                  type="text"
+                  maxlength="500"
+                  placeholder="Write a comment..."
+                  aria-label="Write a comment"
+                  required
+                >
+
+                <button type="submit">Send</button>
+              </form>
+            </div>
+
+          </article>
+        `;
+      }).join("");
+
+      // CONNECT LIKE BUTTONS
+
+      document.querySelectorAll(".like-button").forEach(button => {
+        button.addEventListener("click", () => {
+          toggleLike(button.dataset.postId, button);
+        });
+      });
+
+      // CONNECT COMMENT FORMS
+
+      document.querySelectorAll(".comment-form").forEach(form => {
+        form.addEventListener("submit", event => {
+          event.preventDefault();
+
+          addComment(
+            form.dataset.commentForm,
+            form.querySelector("input"),
+            form.querySelector("button")
           );
+        });
+      });
 
-          if (container) {
-            container.textContent = "Could not load comments.";
+      // LIVE LIKE COUNTS
+
+      posts.forEach(postDoc => {
+        const postId = postDoc.id;
+
+        const likesRef = collection(
+          db,
+          "posts",
+          postId,
+          "likes"
+        );
+
+        const stop = onSnapshot(
+          likesRef,
+
+          likesSnapshot => {
+            const button = [...document.querySelectorAll(".like-button")]
+              .find(item => item.dataset.postId === postId);
+
+            if (!button) return;
+
+            const user = auth.currentUser;
+
+            const liked = user
+              ? likesSnapshot.docs.some(like => like.id === user.uid)
+              : false;
+
+            button.dataset.liked = String(liked);
+
+            button.innerHTML =
+              `${liked ? "❤️ Unlike" : "🤍 Like"} <span class="like-count">${likesSnapshot.size}</span>`;
+          },
+
+          error => console.error("Likes could not load:", error)
+        );
+
+        stopLikes.push(stop);
+      });
+
+      // LIVE COMMENTS
+
+      posts.forEach(postDoc => {
+        const postId = postDoc.id;
+
+        const commentsRef = query(
+          collection(db, "posts", postId, "comments"),
+          orderBy("createdAt", "asc")
+        );
+
+        const stop = onSnapshot(
+          commentsRef,
+
+          commentsSnapshot => {
+            const container = document.querySelector(
+              `[data-comments-post="${postId}"]`
+            );
+
+            if (!container) return;
+
+            if (commentsSnapshot.empty) {
+              container.innerHTML =
+                '<p class="muted">No comments yet. Be the first!</p>';
+              return;
+            }
+
+            container.innerHTML = commentsSnapshot.docs.map(commentDoc => {
+              const c = commentDoc.data();
+              const commentId = commentDoc.id;
+
+              const canDelete =
+                auth.currentUser &&
+                (
+                  auth.currentUser.uid === c.uid ||
+                  auth.currentUser.uid === "VXDMuU17gifoBqTkbpC55Xre9242"
+                );
+
+              return `
+                <div class="comment-item">
+
+                  ${avatarHTML(c.name, c.photoURL, "comment-avatar")}
+
+                  <div class="comment-content">
+                    <strong>${safe(c.name || "PicShare member")}</strong>
+                    <p>${safe(c.text)}</p>
+                  </div>
+
+                  ${canDelete ? `
+                    <button
+                      class="delete-comment"
+                      type="button"
+                      data-comment-id="${safe(commentId)}"
+                      data-post-id="${safe(postId)}"
+                    >Delete</button>
+                  ` : ""}
+
+                </div>
+              `;
+            }).join("");
+
+            container.querySelectorAll(".delete-comment").forEach(button => {
+              button.addEventListener("click", () => {
+                deleteComment(
+                  button.dataset.postId,
+                  button.dataset.commentId
+                );
+              });
+            });
+          },
+
+          error => {
+            console.error("Comments could not load:", error);
+
+            const container = document.querySelector(
+              `[data-comments-post="${postId}"]`
+            );
+
+            if (container) {
+              container.textContent = "Could not load comments.";
+            }
           }
-        }
-      );
+        );
 
-      stopComments.push(stop);
-    });
+        stopComments.push(stop);
+      });
+    },
 
-  }, error => {
-    $("feed").textContent =
-      "Could not load posts: " + error.message;
-  });
+    error => {
+      console.error("Feed error:", error);
+
+      $("feed").textContent =
+        "Could not load posts: " + error.message;
+    }
+  );
 }
 
 // AUTHENTICATION STATE
@@ -771,13 +809,14 @@ onAuthStateChanged(auth, async user => {
     profileMenuWrap.hidden = !user;
   }
 
-  if (profileDropdown) {
-    profileDropdown.hidden = true;
-  }
-
-  profileMenuBtn?.setAttribute("aria-expanded", "false");
+  closeProfileMenu();
 
   if (user) {
+    // START THE FEED FIRST.
+    // This ensures a profile display problem cannot prevent posts loading.
+
+    startFeed();
+
     try {
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
@@ -790,11 +829,12 @@ onAuthStateChanged(auth, async user => {
       }, { merge: true });
 
       await loadProfile(user);
-      startFeed();
 
     } catch (error) {
-      console.error("Could not load user profile:", error);
-      $("feed").textContent = "Could not load your profile.";
+      console.error("Profile loading error:", error);
+
+      $("profileStatus").textContent =
+        "Profile could not load: " + error.message;
     }
 
   } else {
@@ -802,7 +842,10 @@ onAuthStateChanged(auth, async user => {
     $("profileNameInput").value = "";
 
     const oldAvatar = $("profileDisplayPhoto");
-    if (oldAvatar) oldAvatar.remove();
+
+    if (oldAvatar) {
+      oldAvatar.remove();
+    }
 
     $("profileInitial").hidden = false;
     $("profileInitial").textContent = "P";
