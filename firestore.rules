@@ -2,6 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    function isAdmin() {
+      return signedIn() && request.auth.uid == 'VXDMuU17gifoBqTkbpC55Xre9242';
+    }
     match /posts/{postId} {
       allow read: if signedIn();
       allow create: if signedIn()
@@ -9,7 +12,8 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.caption is string
         && request.resource.data.caption.size() <= 220;
-      allow update, delete: if signedIn() && resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin()
+        || (signedIn() && resource.data.uid == request.auth.uid);
     }
   }
 }
