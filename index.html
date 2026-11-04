@@ -24,7 +24,13 @@
           <label class="field-label" for="caption">Your message</label>
           <textarea id="caption" maxlength="220" placeholder="What would you like to share?"></textarea>
           <div class="composer-footer"><span id="charCount">0 / 220</span><button id="publishBtn" class="primary-btn">Publish</button></div>
-          <p class="privacy-note">This starter shares text posts through Firestore. Photo uploads are not enabled.</p>
+          <p class="privacy-note">Text posts are shared through Firestore.</p>
+        <hr>
+        <p class="eyebrow">PHOTO SHARING</p><h2>Upload a photo</h2>
+        <label class="field-label" for="photoFile">Choose JPG, PNG, or WEBP (maximum 2 MB)</label>
+        <input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp">
+        <div class="composer-footer"><span id="photoUploadStatus" aria-live="polite"></span><button id="uploadPhotoBtn" class="primary-btn">Upload photo</button></div>
+        <img id="photoPreview" alt="Uploaded photo preview" hidden style="max-width:100%;border-radius:12px;margin-top:12px">
         </section>
         <div class="feed-heading"><div><p class="eyebrow">YOUR COMMUNITY</p><h2>Recent moments</h2></div><span id="postCount" class="count">0 posts</span></div>
         <section id="feed" class="feed" aria-live="polite"></section>
