@@ -127,13 +127,27 @@ async function loadProfile(user) {
   $("profileNameInput").value = name;
   $("profileInitial").textContent = name.charAt(0).toUpperCase();
 
-  $("profilePhoto").hidden = !photo;
-  $("profileInitial").hidden = !!photo;
+  let avatar = $("profileDisplayPhoto");
 
   if (photo) {
-    $("profilePhoto").src = photo;
+    if (!avatar) {
+      avatar = document.createElement("img");
+      avatar.id = "profileDisplayPhoto";
+      avatar.className = "profile-photo";
+      avatar.alt = "Profile photo";
+
+      $("profileCard")
+        .querySelector(".profile-art")
+        .appendChild(avatar);
+    }
+
+    avatar.src = photo;
+    avatar.hidden = false;
+    $("profileInitial").hidden = true;
+
   } else {
-    $("profilePhoto").removeAttribute("src");
+    if (avatar) avatar.remove();
+    $("profileInitial").hidden = false;
   }
 }
 
@@ -250,6 +264,49 @@ $("signInBtn").addEventListener("click", async () => {
 
 $("signOutBtn").addEventListener("click", () => signOut(auth));
 
+// PROFILE DROPDOWN MENU
+
+const profileMenuBtn = $("profileMenuBtn");
+const profileDropdown = $("profileDropdown");
+const profileMenuWrap = $("profileMenuWrap");
+
+profileMenuBtn?.addEventListener("click", () => {
+  const opening = profileDropdown.hidden;
+
+  profileDropdown.hidden = !opening;
+  profileMenuBtn.setAttribute("aria-expanded", String(opening));
+});
+
+$("myProfileLink")?.addEventListener("click", () => {
+  profileDropdown.hidden = true;
+  profileMenuBtn?.setAttribute("aria-expanded", "false");
+
+  $("profileCard").scrollIntoView({
+    behavior: "smooth"
+  });
+});
+
+$("editProfileLink")?.addEventListener("click", () => {
+  profileDropdown.hidden = true;
+  profileMenuBtn?.setAttribute("aria-expanded", "false");
+
+  $("editProfileCard").scrollIntoView({
+    behavior: "smooth"
+  });
+});
+
+// CLOSE MENU WHEN CLICKING OUTSIDE
+
+document.addEventListener("click", event => {
+  if (profileMenuWrap && !profileMenuWrap.contains(event.target)) {
+    if (profileDropdown) {
+      profileDropdown.hidden = true;
+    }
+
+    profileMenuBtn?.setAttribute("aria-expanded", "false");
+  }
+});
+
 // PHOTO UPLOAD FOR POSTS
 
 $("uploadPhotoBtn")?.addEventListener("click", async () => {
@@ -360,6 +417,7 @@ async function toggleLike(postId, button) {
 
     if (button.dataset.liked === "true") {
       await deleteDoc(likeRef);
+
     } else {
       await setDoc(likeRef, {
         uid: user.uid,
@@ -383,6 +441,7 @@ async function addComment(postId, input, button) {
 
   if (!user) return alert("Please sign in to comment.");
   if (!text) return alert("Write a comment first.");
+
   if (text.length > 500) {
     return alert("Comments cannot exceed 500 characters.");
   }
@@ -497,7 +556,6 @@ function startFeed() {
 
       return `
         <article class="card post">
-
           <div class="post-head">
             ${avatarHTML(p.name, p.photoURL, "mini-avatar")}
 
@@ -551,7 +609,6 @@ function startFeed() {
               <button type="submit">Send</button>
             </form>
           </div>
-
         </article>
       `;
     }).join("");
@@ -710,6 +767,16 @@ onAuthStateChanged(auth, async user => {
   $("appArea").hidden = !user;
   $("signOutBtn").hidden = !user;
 
+  if (profileMenuWrap) {
+    profileMenuWrap.hidden = !user;
+  }
+
+  if (profileDropdown) {
+    profileDropdown.hidden = true;
+  }
+
+  profileMenuBtn?.setAttribute("aria-expanded", "false");
+
   if (user) {
     try {
       const userRef = doc(db, "users", user.uid);
@@ -733,7 +800,10 @@ onAuthStateChanged(auth, async user => {
   } else {
     $("profileName").textContent = "Not signed in";
     $("profileNameInput").value = "";
-    $("profilePhoto").hidden = true;
+
+    const oldAvatar = $("profileDisplayPhoto");
+    if (oldAvatar) oldAvatar.remove();
+
     $("profileInitial").hidden = false;
     $("profileInitial").textContent = "P";
 
