@@ -44,8 +44,10 @@ const safe = value =>
 
 let stopFeed = null;
 let stopLikes = [];
+let stopComments = [];
 
 // MESSAGES
+
 function showMessage(message, error = false) {
   $("authMessage").textContent = message;
   $("authMessage").style.color = error ? "#b42318" : "";
@@ -59,7 +61,18 @@ function getInputs() {
   };
 }
 
+// CLEAN UP LISTENERS
+
+function stopAllListeners() {
+  stopLikes.forEach(stop => stop());
+  stopLikes = [];
+
+  stopComments.forEach(stop => stop());
+  stopComments = [];
+}
+
 // SIGN UP
+
 $("signUpBtn").addEventListener("click", async () => {
   const { email, password, name } = getInputs();
 
@@ -95,6 +108,7 @@ $("signUpBtn").addEventListener("click", async () => {
 });
 
 // SIGN IN
+
 $("signInBtn").addEventListener("click", async () => {
   const { email, password } = getInputs();
 
@@ -112,9 +126,11 @@ $("signInBtn").addEventListener("click", async () => {
 });
 
 // SIGN OUT
+
 $("signOutBtn").addEventListener("click", () => signOut(auth));
 
 // PHOTO UPLOAD
+
 $("uploadPhotoBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
   const file = $("photoFile").files?.[0];
@@ -172,6 +188,7 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
 
     $("photoPreview").src = result.publicUrl;
     $("photoPreview").hidden = false;
+
     $("photoFile").value = "";
     $("caption").value = "";
     $("charCount").textContent = "0 / 220";
@@ -186,17 +203,19 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
 });
 
 // CAPTION COUNTER
+
 $("caption").addEventListener("input", () => {
   $("charCount").textContent =
     `${$("caption").value.length} / 220`;
 });
 
 // TEXT POSTS
+
 $("publishBtn").addEventListener("click", async () => {
   const user = auth.currentUser;
   const caption = $("caption").value.trim();
 
-  if (!user) return;
+  if (!user) return alert("Please sign in first.");
   if (!caption) return alert("Write a message first.");
 
   $("publishBtn").disabled = true;
@@ -221,6 +240,7 @@ $("publishBtn").addEventListener("click", async () => {
 });
 
 // LIKE AND UNLIKE
+
 async function toggleLike(postId, button) {
   const user = auth.currentUser;
 
@@ -257,12 +277,72 @@ async function toggleLike(postId, button) {
   }
 }
 
+// ADD COMMENT
+
+async function addComment(postId, input, button) {
+  const user = auth.currentUser;
+  const text = input.value.trim();
+
+  if (!user) {
+    return alert("Please sign in to comment.");
+  }
+
+  if (!text) {
+    return alert("Write a comment first.");
+  }
+
+  if (text.length > 500) {
+    return alert("Comments cannot exceed 500 characters.");
+  }
+
+  button.disabled = true;
+
+  try {
+    await addDoc(
+      collection(db, "posts", postId, "comments"),
+      {
+        uid: user.uid,
+        name: user.displayName || "PicShare member",
+        text,
+        createdAt: serverTimestamp()
+      }
+    );
+
+    input.value = "";
+
+  } catch (error) {
+    alert("Could not add comment: " + error.message);
+
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// DELETE COMMENT
+
+async function deleteComment(postId, commentId) {
+  const user = auth.currentUser;
+
+  if (!user) return;
+
+  if (!confirm("Delete this comment?")) return;
+
+  try {
+    await deleteDoc(
+      doc(db, "posts", postId, "comments", commentId)
+    );
+
+  } catch (error) {
+    alert("Could not delete comment: " + error.message);
+  }
+}
+
 // FEED
+
 function startFeed() {
   if (stopFeed) stopFeed();
 
-  stopLikes.forEach(stop => stop());
-  stopLikes = [];
+  stopAllListeners();
 
   const q = query(
     collection(db, "posts"),
@@ -270,8 +350,8 @@ function startFeed() {
   );
 
   stopFeed = onSnapshot(q, snapshot => {
-    stopLikes.forEach(stop => stop());
-    stopLikes = [];
+
+    stopAllListeners();
 
     const posts = snapshot.docs;
 
@@ -322,16 +402,49 @@ function startFeed() {
           ${photo}
           ${caption}
 
-          <div class="post-actions" style="margin-top:12px;">
+          <div class="post-actions">
+
             <button
               type="button"
               class="like-button"
               data-post-id="${safe(postId)}"
               data-liked="false"
-              style="border:0;background:transparent;padding:8px 12px;border-radius:20px;cursor:pointer;font-size:15px;"
             >
               🤍 Like <span class="like-count">0</span>
             </button>
+
+          </div>
+
+          <div class="comments-section">
+
+            <div class="comments-title">
+              💬 Comments
+            </div>
+
+            <div
+              class="comments-list"
+              data-comments-post="${safe(postId)}"
+            >
+              <span class="muted">Loading comments...</span>
+            </div>
+
+            <form
+              class="comment-form"
+              data-comment-form="${safe(postId)}"
+            >
+
+              <input
+                type="text"
+                maxlength="500"
+                placeholder="Write a comment..."
+                aria-label="Write a comment"
+                required
+              >
+
+              <button type="submit">Send</button>
+
+            </form>
+
           </div>
 
         </article>
@@ -339,13 +452,29 @@ function startFeed() {
     }).join("");
 
     // CONNECT LIKE BUTTONS
+
     document.querySelectorAll(".like-button").forEach(button => {
       button.addEventListener("click", () => {
         toggleLike(button.dataset.postId, button);
       });
     });
 
+    // CONNECT COMMENT FORMS
+
+    document.querySelectorAll(".comment-form").forEach(form => {
+      form.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const postId = form.dataset.commentForm;
+        const input = form.querySelector("input");
+        const button = form.querySelector("button");
+
+        addComment(postId, input, button);
+      });
+    });
+
     // LIVE LIKE COUNTS
+
     posts.forEach(postDoc => {
       const postId = postDoc.id;
 
@@ -385,6 +514,93 @@ function startFeed() {
       stopLikes.push(stop);
     });
 
+    // LIVE COMMENTS
+
+    posts.forEach(postDoc => {
+      const postId = postDoc.id;
+
+      const commentsRef = query(
+        collection(db, "posts", postId, "comments"),
+        orderBy("createdAt", "asc")
+      );
+
+      const stop = onSnapshot(
+        commentsRef,
+        commentsSnapshot => {
+
+          const container = document.querySelector(
+            `[data-comments-post="${postId}"]`
+          );
+
+          if (!container) return;
+
+          if (commentsSnapshot.empty) {
+            container.innerHTML =
+              '<p class="muted">No comments yet. Be the first!</p>';
+            return;
+          }
+
+          container.innerHTML = commentsSnapshot.docs.map(commentDoc => {
+            const c = commentDoc.data();
+            const commentId = commentDoc.id;
+
+            const canDelete =
+              auth.currentUser &&
+              (
+                auth.currentUser.uid === c.uid ||
+                auth.currentUser.uid === "VXDMuU17gifoBqTkbpC55Xre9242"
+              );
+
+            return `
+              <div class="comment-item">
+
+                <div class="comment-avatar">
+                  ${safe((c.name || "P").slice(0, 1).toUpperCase())}
+                </div>
+
+                <div class="comment-content">
+                  <strong>${safe(c.name || "PicShare member")}</strong>
+                  <p>${safe(c.text)}</p>
+                </div>
+
+                ${canDelete ? `
+                  <button
+                    class="delete-comment"
+                    type="button"
+                    data-comment-id="${safe(commentId)}"
+                    data-post-id="${safe(postId)}"
+                  >Delete</button>
+                ` : ""}
+
+              </div>
+            `;
+          }).join("");
+
+          container.querySelectorAll(".delete-comment").forEach(button => {
+            button.addEventListener("click", () => {
+              deleteComment(
+                button.dataset.postId,
+                button.dataset.commentId
+              );
+            });
+          });
+        },
+        error => {
+          console.error("Comments could not load:", error);
+
+          const container = document.querySelector(
+            `[data-comments-post="${postId}"]`
+          );
+
+          if (container) {
+            container.textContent = "Could not load comments.";
+          }
+        }
+      );
+
+      stopComments.push(stop);
+    });
+
   }, error => {
     $("feed").textContent =
       "Could not load posts: " + error.message;
@@ -392,7 +608,9 @@ function startFeed() {
 }
 
 // AUTHENTICATION STATE
+
 onAuthStateChanged(auth, async user => {
+
   $("authCard").hidden = !!user;
   $("appArea").hidden = !user;
   $("signOutBtn").hidden = !user;
@@ -420,12 +638,12 @@ onAuthStateChanged(auth, async user => {
     }
 
   } else {
+
     if (stopFeed) {
       stopFeed();
       stopFeed = null;
     }
 
-    stopLikes.forEach(stop => stop());
-    stopLikes = [];
+    stopAllListeners();
   }
 });
