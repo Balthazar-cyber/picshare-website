@@ -429,12 +429,3 @@ onAuthStateChanged(auth, async user => {
     stopLikes = [];
   }
 });
-
-After pasting
-
-1. Commit the changes in GitHub.
-2. Wait for deployment.
-3. Open PicShare and sign in.
-4. Test liking and unliking a post.
-
-Important: This code assumes the Firestore Likes rules we added earlier are published. I haven't independently run this code against your Firebase project, so keep your backup until all tests pass.
