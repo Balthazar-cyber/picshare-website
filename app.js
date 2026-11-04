@@ -1,9 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const SUPABASE_URL = "https://rcfyzegwkopysdmrqiei.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
 
@@ -13,7 +12,6 @@ const db = getFirestore(app);
 const $ = id => document.getElementById(id);
 const safe = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 let stopFeed = null;
-
 function showMessage(message, error=false) {
   $("authMessage").textContent = message;
   $("authMessage").style.color = error ? "#b42318" : "";
@@ -27,6 +25,9 @@ $("signUpBtn").addEventListener("click", async () => {
   try {
     const credential = await createUserWithEmailAndPassword(auth,email,password);
     await updateProfile(credential.user,{displayName:name});
+    await setDoc(doc(db,"users",credential.user.uid), {
+      uid: credential.user.uid, name, createdAt: serverTimestamp()
+    }, { merge: true });
     showMessage("Account created.");
   } catch (e) { showMessage(e.message, true); }
 });
@@ -37,7 +38,6 @@ $("signInBtn").addEventListener("click", async () => {
   catch (e) { showMessage(e.message, true); }
 });
 $("signOutBtn").addEventListener("click", () => signOut(auth));
-
 // Photo uploads are sent to a Supabase Edge Function, which verifies the Firebase ID token.
 $("uploadPhotoBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -95,7 +95,6 @@ $("publishBtn").addEventListener("click", async () => {
   } catch (e) { alert("Could not publish: " + e.message); }
   finally { $("publishBtn").disabled = false; }
 });
-
 function startFeed() {
   if (stopFeed) stopFeed();
   const q = query(collection(db,"posts"),orderBy("createdAt","desc"));
@@ -115,11 +114,16 @@ function startFeed() {
     }).join("");
   }, error => { $("feed").textContent = "Could not load posts: " + error.message; });
 }
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
   $("authCard").hidden = !!user;
   $("appArea").hidden = !user;
   $("signOutBtn").hidden = !user;
   $("profileName").textContent = user ? (user.displayName || user.email) : "Not signed in";
   $("profileInitial").textContent = user ? (user.displayName || user.email || "P").slice(0,1).toUpperCase() : "P";
-  if (user) startFeed(); else if (stopFeed) { stopFeed(); stopFeed = null; }
+  if (user) {
+    await setDoc(doc(db,"users",user.uid), {
+      uid: user.uid, name: user.displayName || "PicShare member"
+    }, { merge: true });
+    startFeed();
+  } else if (stopFeed) { stopFeed(); stopFeed = null; }
 });
