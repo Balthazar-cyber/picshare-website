@@ -2,6 +2,10 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebas
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = "https://rcfyzegwkopysdmrqiei.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -33,6 +37,37 @@ $("signInBtn").addEventListener("click", async () => {
   catch (e) { showMessage(e.message, true); }
 });
 $("signOutBtn").addEventListener("click", () => signOut(auth));
+
+// Photo uploads are sent to a Supabase Edge Function, which verifies the Firebase ID token.
+$("uploadPhotoBtn")?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  const file = $("photoFile").files?.[0];
+  if (!user) return alert("Please sign in first.");
+  if (!file) return alert("Choose a photo first.");
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) return alert("Choose a JPG, PNG, or WEBP image.");
+  if (file.size > 2 * 1024 * 1024) return alert("Please choose an image smaller than 2 MB.");
+  const button = $("uploadPhotoBtn");
+  button.disabled = true;
+  $("photoUploadStatus").textContent = "Uploading…";
+  try {
+    const token = await user.getIdToken();
+    const form = new FormData();
+    form.append("file", file, file.name);
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/dynamic-function`, {
+      method: "POST",
+      headers: { "apikey": SUPABASE_PUBLISHABLE_KEY, "x-firebase-token": token },
+      body: form
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `Upload failed (${response.status})`);
+    $("photoUploadStatus").textContent = "Photo uploaded!";
+    $("photoPreview").src = result.publicUrl;
+    $("photoPreview").hidden = false;
+    $("photoFile").value = "";
+  } catch (error) {
+    $("photoUploadStatus").textContent = "Upload failed: " + error.message;
+  } finally { button.disabled = false; }
+});
 $("caption").addEventListener("input", () => $("charCount").textContent = `${$("caption").value.length} / 220`);
 $("publishBtn").addEventListener("click", async () => {
   const user = auth.currentUser;
