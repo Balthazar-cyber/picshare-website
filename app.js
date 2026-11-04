@@ -60,10 +60,21 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || `Upload failed (${response.status})`);
-    $("photoUploadStatus").textContent = "Photo uploaded!";
+    // Save the uploaded photo's public URL in Firestore so it appears in the live feed.
+    await addDoc(collection(db, "posts"), {
+      uid: user.uid,
+      name: user.displayName || "PicShare member",
+      caption: $("caption").value.trim(),
+      imageUrl: result.publicUrl,
+      storagePath: result.path,
+      createdAt: serverTimestamp()
+    });
+    $("photoUploadStatus").textContent = "Photo uploaded and shared to your feed!";
     $("photoPreview").src = result.publicUrl;
     $("photoPreview").hidden = false;
     $("photoFile").value = "";
+    $("caption").value = "";
+    $("charCount").textContent = "0 / 220";
   } catch (error) {
     $("photoUploadStatus").textContent = "Upload failed: " + error.message;
   } finally { button.disabled = false; }
@@ -98,7 +109,9 @@ function startFeed() {
     $("feed").innerHTML = docs.map(doc => {
       const p = doc.data();
       const date = p.createdAt?.toDate ? p.createdAt.toDate().toLocaleString() : "Just now";
-      return `<article class="card post"><div class="post-head"><span class="mini-avatar">${safe((p.name||"P").slice(0,1).toUpperCase())}</span><div><div class="post-author">${safe(p.name||"PicShare member")}</div><div class="post-date">${safe(date)}</div></div></div><div class="post-caption">${safe(p.caption)}</div></article>`;
+      const photo = p.imageUrl ? `<img class="post-image" src="${safe(p.imageUrl)}" alt="Photo shared by ${safe(p.name || "PicShare member")}" loading="lazy">` : "";
+      const caption = p.caption ? `<div class="post-caption">${safe(p.caption)}</div>` : "";
+      return `<article class="card post"><div class="post-head"><span class="mini-avatar">${safe((p.name||"P").slice(0,1).toUpperCase())}</span><div><div class="post-author">${safe(p.name||"PicShare member")}</div><div class="post-date">${safe(date)}</div></div></div>${photo}${caption}</article>`;
     }).join("");
   }, error => { $("feed").textContent = "Could not load posts: " + error.message; });
 }
