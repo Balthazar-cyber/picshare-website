@@ -48,43 +48,32 @@ let stopFeed = null;
 let stopLikes = [];
 let stopComments = [];
 
-// PROFILE MENU ELEMENTS
+// PROFILE MENU
 
 const profileMenuBtn = $("profileMenuBtn");
 const profileDropdown = $("profileDropdown");
 const profileMenuWrap = $("profileMenuWrap");
 
-// CLOSE PROFILE MENU
-
 function closeProfileMenu() {
   if (profileDropdown) profileDropdown.hidden = true;
-
   profileMenuBtn?.setAttribute("aria-expanded", "false");
 }
-
-// OPEN AND CLOSE PROFILE MENU
 
 profileMenuBtn?.addEventListener("click", event => {
   event.stopPropagation();
 
+  if (!profileDropdown) return;
+
   const opening = profileDropdown.hidden;
   profileDropdown.hidden = !opening;
-
   profileMenuBtn.setAttribute("aria-expanded", String(opening));
 });
 
-// CLOSE MENU WHEN CLICKING OUTSIDE
-
 document.addEventListener("click", event => {
-  if (
-    profileMenuWrap &&
-    !profileMenuWrap.contains(event.target)
-  ) {
+  if (profileMenuWrap && !profileMenuWrap.contains(event.target)) {
     closeProfileMenu();
   }
 });
-
-// MY PROFILE
 
 $("myProfileLink")?.addEventListener("click", () => {
   closeProfileMenu();
@@ -93,8 +82,6 @@ $("myProfileLink")?.addEventListener("click", () => {
     behavior: "smooth"
   });
 });
-
-// EDIT PROFILE
 
 $("editProfileLink")?.addEventListener("click", () => {
   closeProfileMenu();
@@ -201,10 +188,8 @@ async function loadProfile(user) {
     avatar.src = photo;
     avatar.hidden = false;
     $("profileInitial").hidden = true;
-
   } else {
     if (avatar) avatar.remove();
-
     $("profileInitial").hidden = false;
   }
 }
@@ -230,7 +215,6 @@ $("saveProfileBtn").addEventListener("click", async () => {
 
   const button = $("saveProfileBtn");
   button.disabled = true;
-
   $("profileStatus").textContent = "Saving profile...";
 
   try {
@@ -252,15 +236,11 @@ $("saveProfileBtn").addEventListener("click", async () => {
     }, { merge: true });
 
     $("profilePhotoInput").value = "";
-
-    $("profileStatus").textContent =
-      "Profile saved successfully!";
+    $("profileStatus").textContent = "Profile saved successfully!";
 
     await loadProfile(user);
-
   } catch (error) {
     $("profileStatus").textContent = error.message;
-
   } finally {
     button.disabled = false;
   }
@@ -297,7 +277,6 @@ $("signUpBtn").addEventListener("click", async () => {
     }, { merge: true });
 
     showMessage("Account created.");
-
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -315,7 +294,6 @@ $("signInBtn").addEventListener("click", async () => {
   try {
     await signInWithEmailAndPassword(auth, email, password);
     showMessage("");
-
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -339,7 +317,6 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
 
   const button = $("uploadPhotoBtn");
   button.disabled = true;
-
   $("photoUploadStatus").textContent = "Uploading...";
 
   try {
@@ -366,11 +343,9 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
     $("photoFile").value = "";
     $("caption").value = "";
     $("charCount").textContent = "0 / 220";
-
   } catch (error) {
     $("photoUploadStatus").textContent =
       "Upload failed: " + error.message;
-
   } finally {
     button.disabled = false;
   }
@@ -392,6 +367,10 @@ $("publishBtn").addEventListener("click", async () => {
   if (!user) return alert("Please sign in first.");
   if (!caption) return alert("Write a message first.");
 
+  if (caption.length > 220) {
+    return alert("Posts cannot exceed 220 characters.");
+  }
+
   const button = $("publishBtn");
   button.disabled = true;
 
@@ -409,10 +388,8 @@ $("publishBtn").addEventListener("click", async () => {
 
     $("caption").value = "";
     $("charCount").textContent = "0 / 220";
-
   } catch (error) {
     alert("Could not publish: " + error.message);
-
   } finally {
     button.disabled = false;
   }
@@ -430,27 +407,18 @@ async function toggleLike(postId, button) {
   button.disabled = true;
 
   try {
-    const likeRef = doc(
-      db,
-      "posts",
-      postId,
-      "likes",
-      user.uid
-    );
+    const likeRef = doc(db, "posts", postId, "likes", user.uid);
 
     if (button.dataset.liked === "true") {
       await deleteDoc(likeRef);
-
     } else {
       await setDoc(likeRef, {
         uid: user.uid,
         createdAt: serverTimestamp()
       });
     }
-
   } catch (error) {
     alert("Could not update like: " + error.message);
-
   } finally {
     button.disabled = false;
   }
@@ -487,10 +455,8 @@ async function addComment(postId, input, button) {
     );
 
     input.value = "";
-
   } catch (error) {
     alert("Could not add comment: " + error.message);
-
   } finally {
     button.disabled = false;
   }
@@ -508,7 +474,6 @@ async function deleteComment(postId, commentId) {
     await deleteDoc(
       doc(db, "posts", postId, "comments", commentId)
     );
-
   } catch (error) {
     alert("Could not delete comment: " + error.message);
   }
@@ -535,17 +500,15 @@ function avatarHTML(name, photoURL, className) {
   `;
 }
 
-// FEED
+// FEED — INCLUDES OLDER POSTS WITHOUT TIMESTAMPS
 
 function startFeed() {
   if (stopFeed) stopFeed();
 
   stopAllListeners();
 
-  const q = query(
-    collection(db, "posts"),
-    orderBy("createdAt", "desc")
-  );
+  // Do not use orderBy here. It excludes documents without createdAt.
+  const q = collection(db, "posts");
 
   stopFeed = onSnapshot(
     q,
@@ -553,7 +516,11 @@ function startFeed() {
     snapshot => {
       stopAllListeners();
 
-      const posts = snapshot.docs;
+      const posts = [...snapshot.docs].sort((a, b) => {
+        const timeA = a.data().createdAt?.toMillis?.() || 0;
+        const timeB = b.data().createdAt?.toMillis?.() || 0;
+        return timeB - timeA;
+      });
 
       $("postCount").textContent =
         `${posts.length} ${posts.length === 1 ? "post" : "posts"}`;
@@ -570,7 +537,7 @@ function startFeed() {
 
         const date = p.createdAt?.toDate
           ? p.createdAt.toDate().toLocaleString()
-          : "Just now";
+          : "Earlier post";
 
         const photo = p.imageUrl
           ? `<img class="post-image" src="${safe(p.imageUrl)}" alt="Photo shared by ${safe(p.name || "PicShare member")}" loading="lazy">`
@@ -812,9 +779,7 @@ onAuthStateChanged(auth, async user => {
   closeProfileMenu();
 
   if (user) {
-    // START THE FEED FIRST.
-    // This ensures a profile display problem cannot prevent posts loading.
-
+    // Start feed before loading profile.
     startFeed();
 
     try {
@@ -829,23 +794,18 @@ onAuthStateChanged(auth, async user => {
       }, { merge: true });
 
       await loadProfile(user);
-
     } catch (error) {
       console.error("Profile loading error:", error);
 
       $("profileStatus").textContent =
         "Profile could not load: " + error.message;
     }
-
   } else {
     $("profileName").textContent = "Not signed in";
     $("profileNameInput").value = "";
 
     const oldAvatar = $("profileDisplayPhoto");
-
-    if (oldAvatar) {
-      oldAvatar.remove();
-    }
+    if (oldAvatar) oldAvatar.remove();
 
     $("profileInitial").hidden = false;
     $("profileInitial").textContent = "P";
