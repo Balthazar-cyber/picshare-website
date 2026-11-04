@@ -19,6 +19,7 @@ import {
   serverTimestamp,
   doc,
   setDoc,
+  getDoc,
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
@@ -71,6 +72,125 @@ function stopAllListeners() {
   stopComments = [];
 }
 
+// PHOTO UPLOAD HELPER
+
+async function uploadImage(user, file) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Choose a JPG, PNG or WEBP image.");
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("Choose an image smaller than 2 MB.");
+  }
+
+  const token = await user.getIdToken();
+  const form = new FormData();
+
+  form.append("file", file, file.name);
+
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/dynamic-function`,
+    {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        "x-firebase-token": token
+      },
+      body: form
+    }
+  );
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || `Upload failed (${response.status})`);
+  }
+
+  if (!result.publicUrl) {
+    throw new Error("The upload did not return a photo URL.");
+  }
+
+  return result.publicUrl;
+}
+
+// PROFILE DISPLAY
+
+async function loadProfile(user) {
+  const profileRef = doc(db, "users", user.uid);
+  const profileSnap = await getDoc(profileRef);
+  const profile = profileSnap.exists() ? profileSnap.data() : {};
+
+  const name = profile.name || user.displayName || "PicShare member";
+  const photo = profile.photoURL || user.photoURL || "";
+
+  $("profileName").textContent = name;
+  $("profileNameInput").value = name;
+  $("profileInitial").textContent = name.charAt(0).toUpperCase();
+
+  $("profilePhoto").hidden = !photo;
+  $("profileInitial").hidden = !!photo;
+
+  if (photo) {
+    $("profilePhoto").src = photo;
+  } else {
+    $("profilePhoto").removeAttribute("src");
+  }
+}
+
+// SAVE PROFILE
+
+$("saveProfileBtn").addEventListener("click", async () => {
+  const user = auth.currentUser;
+
+  if (!user) {
+    $("profileStatus").textContent = "Please sign in first.";
+    return;
+  }
+
+  const name = $("profileNameInput").value.trim();
+  const file = $("profilePhotoInput").files?.[0];
+
+  if (!name || name.length > 30) {
+    $("profileStatus").textContent =
+      "Enter a display name of 1–30 characters.";
+    return;
+  }
+
+  const button = $("saveProfileBtn");
+  button.disabled = true;
+  $("profileStatus").textContent = "Saving profile...";
+
+  try {
+    let photoURL = user.photoURL || "";
+
+    if (file) {
+      photoURL = await uploadImage(user, file);
+    }
+
+    await updateProfile(user, {
+      displayName: name,
+      photoURL
+    });
+
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      name,
+      photoURL
+    }, { merge: true });
+
+    $("profilePhotoInput").value = "";
+    $("profileStatus").textContent = "Profile saved successfully!";
+
+    await loadProfile(user);
+
+  } catch (error) {
+    $("profileStatus").textContent = error.message;
+
+  } finally {
+    button.disabled = false;
+  }
+});
+
 // SIGN UP
 
 $("signUpBtn").addEventListener("click", async () => {
@@ -97,13 +217,14 @@ $("signUpBtn").addEventListener("click", async () => {
     await setDoc(doc(db, "users", credential.user.uid), {
       uid: credential.user.uid,
       name,
+      photoURL: "",
       createdAt: serverTimestamp()
     }, { merge: true });
 
     showMessage("Account created.");
 
-  } catch (e) {
-    showMessage(e.message, true);
+  } catch (error) {
+    showMessage(error.message, true);
   }
 });
 
@@ -120,8 +241,8 @@ $("signInBtn").addEventListener("click", async () => {
     await signInWithEmailAndPassword(auth, email, password);
     showMessage("");
 
-  } catch (e) {
-    showMessage(e.message, true);
+  } catch (error) {
+    showMessage(error.message, true);
   }
 });
 
@@ -129,7 +250,7 @@ $("signInBtn").addEventListener("click", async () => {
 
 $("signOutBtn").addEventListener("click", () => signOut(auth));
 
-// PHOTO UPLOAD
+// PHOTO UPLOAD FOR POSTS
 
 $("uploadPhotoBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -138,57 +259,30 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
   if (!user) return alert("Please sign in first.");
   if (!file) return alert("Choose a photo first.");
 
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-    return alert("Choose a JPG, PNG, or WEBP image.");
-  }
-
-  if (file.size > 2 * 1024 * 1024) {
-    return alert("Please choose an image smaller than 2 MB.");
-  }
-
   const button = $("uploadPhotoBtn");
   button.disabled = true;
-  $("photoUploadStatus").textContent = "Uploading…";
+  $("photoUploadStatus").textContent = "Uploading...";
 
   try {
-    const token = await user.getIdToken();
-    const form = new FormData();
+    const imageUrl = await uploadImage(user, file);
 
-    form.append("file", file, file.name);
-
-    const response = await fetch(
-      `${SUPABASE_URL}/functions/v1/dynamic-function`,
-      {
-        method: "POST",
-        headers: {
-          "apikey": SUPABASE_PUBLISHABLE_KEY,
-          "x-firebase-token": token
-        },
-        body: form
-      }
-    );
-
-    const result = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(result.error || `Upload failed (${response.status})`);
-    }
+    const profileSnap = await getDoc(doc(db, "users", user.uid));
+    const profile = profileSnap.exists() ? profileSnap.data() : {};
 
     await addDoc(collection(db, "posts"), {
       uid: user.uid,
-      name: user.displayName || "PicShare member",
+      name: profile.name || user.displayName || "PicShare member",
+      photoURL: profile.photoURL || user.photoURL || "",
       caption: $("caption").value.trim(),
-      imageUrl: result.publicUrl,
-      storagePath: result.path,
+      imageUrl,
       createdAt: serverTimestamp()
     });
 
     $("photoUploadStatus").textContent =
       "Photo uploaded and shared to your feed!";
 
-    $("photoPreview").src = result.publicUrl;
+    $("photoPreview").src = imageUrl;
     $("photoPreview").hidden = false;
-
     $("photoFile").value = "";
     $("caption").value = "";
     $("charCount").textContent = "0 / 220";
@@ -218,12 +312,17 @@ $("publishBtn").addEventListener("click", async () => {
   if (!user) return alert("Please sign in first.");
   if (!caption) return alert("Write a message first.");
 
-  $("publishBtn").disabled = true;
+  const button = $("publishBtn");
+  button.disabled = true;
 
   try {
+    const profileSnap = await getDoc(doc(db, "users", user.uid));
+    const profile = profileSnap.exists() ? profileSnap.data() : {};
+
     await addDoc(collection(db, "posts"), {
       uid: user.uid,
-      name: user.displayName || "PicShare member",
+      name: profile.name || user.displayName || "PicShare member",
+      photoURL: profile.photoURL || user.photoURL || "",
       caption,
       createdAt: serverTimestamp()
     });
@@ -231,11 +330,11 @@ $("publishBtn").addEventListener("click", async () => {
     $("caption").value = "";
     $("charCount").textContent = "0 / 220";
 
-  } catch (e) {
-    alert("Could not publish: " + e.message);
+  } catch (error) {
+    alert("Could not publish: " + error.message);
 
   } finally {
-    $("publishBtn").disabled = false;
+    button.disabled = false;
   }
 });
 
@@ -261,7 +360,6 @@ async function toggleLike(postId, button) {
 
     if (button.dataset.liked === "true") {
       await deleteDoc(likeRef);
-
     } else {
       await setDoc(likeRef, {
         uid: user.uid,
@@ -283,14 +381,8 @@ async function addComment(postId, input, button) {
   const user = auth.currentUser;
   const text = input.value.trim();
 
-  if (!user) {
-    return alert("Please sign in to comment.");
-  }
-
-  if (!text) {
-    return alert("Write a comment first.");
-  }
-
+  if (!user) return alert("Please sign in to comment.");
+  if (!text) return alert("Write a comment first.");
   if (text.length > 500) {
     return alert("Comments cannot exceed 500 characters.");
   }
@@ -298,11 +390,15 @@ async function addComment(postId, input, button) {
   button.disabled = true;
 
   try {
+    const profileSnap = await getDoc(doc(db, "users", user.uid));
+    const profile = profileSnap.exists() ? profileSnap.data() : {};
+
     await addDoc(
       collection(db, "posts", postId, "comments"),
       {
         uid: user.uid,
-        name: user.displayName || "PicShare member",
+        name: profile.name || user.displayName || "PicShare member",
+        photoURL: profile.photoURL || user.photoURL || "",
         text,
         createdAt: serverTimestamp()
       }
@@ -324,7 +420,6 @@ async function deleteComment(postId, commentId) {
   const user = auth.currentUser;
 
   if (!user) return;
-
   if (!confirm("Delete this comment?")) return;
 
   try {
@@ -335,6 +430,27 @@ async function deleteComment(postId, commentId) {
   } catch (error) {
     alert("Could not delete comment: " + error.message);
   }
+}
+
+// AVATAR HTML
+
+function avatarHTML(name, photoURL, className) {
+  if (photoURL) {
+    return `
+      <img
+        class="${className}"
+        src="${safe(photoURL)}"
+        alt="${safe(name)}"
+        loading="lazy"
+      >
+    `;
+  }
+
+  return `
+    <span class="${className}">
+      ${safe((name || "P").slice(0, 1).toUpperCase())}
+    </span>
+  `;
 }
 
 // FEED
@@ -350,7 +466,6 @@ function startFeed() {
   );
 
   stopFeed = onSnapshot(q, snapshot => {
-
     stopAllListeners();
 
     const posts = snapshot.docs;
@@ -384,9 +499,7 @@ function startFeed() {
         <article class="card post">
 
           <div class="post-head">
-            <span class="mini-avatar">
-              ${safe((p.name || "P").slice(0, 1).toUpperCase())}
-            </span>
+            ${avatarHTML(p.name, p.photoURL, "mini-avatar")}
 
             <div>
               <div class="post-author">
@@ -403,7 +516,6 @@ function startFeed() {
           ${caption}
 
           <div class="post-actions">
-
             <button
               type="button"
               class="like-button"
@@ -412,14 +524,10 @@ function startFeed() {
             >
               🤍 Like <span class="like-count">0</span>
             </button>
-
           </div>
 
           <div class="comments-section">
-
-            <div class="comments-title">
-              💬 Comments
-            </div>
+            <div class="comments-title">💬 Comments</div>
 
             <div
               class="comments-list"
@@ -432,7 +540,6 @@ function startFeed() {
               class="comment-form"
               data-comment-form="${safe(postId)}"
             >
-
               <input
                 type="text"
                 maxlength="500"
@@ -442,9 +549,7 @@ function startFeed() {
               >
 
               <button type="submit">Send</button>
-
             </form>
-
           </div>
 
         </article>
@@ -465,11 +570,11 @@ function startFeed() {
       form.addEventListener("submit", event => {
         event.preventDefault();
 
-        const postId = form.dataset.commentForm;
-        const input = form.querySelector("input");
-        const button = form.querySelector("button");
-
-        addComment(postId, input, button);
+        addComment(
+          form.dataset.commentForm,
+          form.querySelector("input"),
+          form.querySelector("button")
+        );
       });
     });
 
@@ -496,9 +601,7 @@ function startFeed() {
           const user = auth.currentUser;
 
           const liked = user
-            ? likesSnapshot.docs.some(
-                like => like.id === user.uid
-              )
+            ? likesSnapshot.docs.some(like => like.id === user.uid)
             : false;
 
           button.dataset.liked = String(liked);
@@ -506,9 +609,7 @@ function startFeed() {
           button.innerHTML =
             `${liked ? "❤️ Unlike" : "🤍 Like"} <span class="like-count">${likesSnapshot.size}</span>`;
         },
-        error => {
-          console.error("Likes could not load:", error);
-        }
+        error => console.error("Likes could not load:", error)
       );
 
       stopLikes.push(stop);
@@ -527,7 +628,6 @@ function startFeed() {
       const stop = onSnapshot(
         commentsRef,
         commentsSnapshot => {
-
           const container = document.querySelector(
             `[data-comments-post="${postId}"]`
           );
@@ -553,10 +653,7 @@ function startFeed() {
 
             return `
               <div class="comment-item">
-
-                <div class="comment-avatar">
-                  ${safe((c.name || "P").slice(0, 1).toUpperCase())}
-                </div>
+                ${avatarHTML(c.name, c.photoURL, "comment-avatar")}
 
                 <div class="comment-content">
                   <strong>${safe(c.name || "PicShare member")}</strong>
@@ -571,7 +668,6 @@ function startFeed() {
                     data-post-id="${safe(postId)}"
                   >Delete</button>
                 ` : ""}
-
               </div>
             `;
           }).join("");
@@ -610,26 +706,23 @@ function startFeed() {
 // AUTHENTICATION STATE
 
 onAuthStateChanged(auth, async user => {
-
   $("authCard").hidden = !!user;
   $("appArea").hidden = !user;
   $("signOutBtn").hidden = !user;
 
-  $("profileName").textContent = user
-    ? (user.displayName || user.email)
-    : "Not signed in";
-
-  $("profileInitial").textContent = user
-    ? (user.displayName || user.email || "P").slice(0, 1).toUpperCase()
-    : "P";
-
   if (user) {
     try {
-      await setDoc(doc(db, "users", user.uid), {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      const profile = userSnap.exists() ? userSnap.data() : {};
+
+      await setDoc(userRef, {
         uid: user.uid,
-        name: user.displayName || "PicShare member"
+        name: profile.name || user.displayName || "PicShare member",
+        photoURL: profile.photoURL || user.photoURL || ""
       }, { merge: true });
 
+      await loadProfile(user);
       startFeed();
 
     } catch (error) {
@@ -638,6 +731,11 @@ onAuthStateChanged(auth, async user => {
     }
 
   } else {
+    $("profileName").textContent = "Not signed in";
+    $("profileNameInput").value = "";
+    $("profilePhoto").hidden = true;
+    $("profileInitial").hidden = false;
+    $("profileInitial").textContent = "P";
 
     if (stopFeed) {
       stopFeed();
