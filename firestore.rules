@@ -3,10 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // -------------------------
-    // GENERAL FUNCTIONS
-    // -------------------------
-
     function signedIn() {
       return request.auth != null;
     }
@@ -21,12 +17,45 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid;
     }
 
-    // -------------------------
+    function membershipPath(uid) {
+      return /databases/$(database)/documents/membership_status/$(uid);
+    }
+
+    // A user without a membership_status document is treated as active.
+    function memberStatus(uid) {
+      return exists(membershipPath(uid))
+        ? get(membershipPath(uid)).data.status
+        : "active";
+    }
+
+    function canView() {
+      return signedIn()
+        && (
+          isAdmin()
+          || memberStatus(request.auth.uid) in ["active", "restricted"]
+        );
+    }
+
+    function canInteract() {
+      return signedIn()
+        && (
+          isAdmin()
+          || memberStatus(request.auth.uid) == "active"
+        );
+    }
+
+    // MEMBERSHIP STATUS: members can read only their own status;
+    // the administrator can read all statuses and change them.
+    match /membership_status/{userId} {
+      allow read: if signedIn()
+        && (request.auth.uid == userId || isAdmin());
+
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
     // USER PROFILES
-    // -------------------------
-
     match /users/{userId} {
-
       allow read: if signedIn()
         && (request.auth.uid == userId || isAdmin());
 
@@ -34,27 +63,21 @@ service cloud.firestore {
         && request.auth.uid == userId
         && request.resource.data.uid == request.auth.uid;
 
-      allow update: if signedIn()
-        && (
-          request.auth.uid == userId
-          || isAdmin()
+      allow update: if isAdmin()
+        || (
+          canInteract()
+          && request.auth.uid == userId
         );
 
       allow delete: if isAdmin();
 
-      // -------------------------
       // USER NOTIFICATIONS
-      // -------------------------
-
       match /notifications/{notificationId} {
-
-        // Only the recipient can read notifications.
         allow read: if signedIn()
-          && request.auth.uid == userId;
+          && request.auth.uid == userId
+          && canView();
 
-        // Only allow notifications about posts belonging
-        // to the recipient, created by another signed-in member.
-        allow create: if signedIn()
+        allow create: if canInteract()
           && request.resource.data.actorUid == request.auth.uid
           && request.auth.uid != userId
           && request.resource.data.type in ["like", "comment"]
@@ -63,9 +86,9 @@ service cloud.firestore {
             /databases/$(database)/documents/posts/$(request.resource.data.postId)
           ).data.uid == userId;
 
-        // Recipient can only change the read status.
         allow update: if signedIn()
           && request.auth.uid == userId
+          && canView()
           && request.resource.data.diff(resource.data)
             .affectedKeys().hasOnly(["read"])
           && request.resource.data.read is bool;
@@ -75,96 +98,75 @@ service cloud.firestore {
       }
     }
 
-    // -------------------------
     // POSTS
-    // -------------------------
-
     match /posts/{postId} {
+      allow read: if canView();
 
-      allow read: if signedIn();
-
-      allow create: if signedIn()
+      allow create: if canInteract()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.caption is string
         && request.resource.data.caption.size() <= 220;
 
-      allow update, delete: if ownsDocument() || isAdmin();
+      allow update, delete: if isAdmin()
+        || (canInteract() && ownsDocument());
 
-      // -------------------------
       // POST LIKES
-      // -------------------------
-
       match /likes/{userId} {
+        allow read: if canView();
 
-        allow read: if signedIn();
-
-        allow create, update: if signedIn()
+        allow create, update: if canInteract()
           && request.auth.uid == userId
           && request.resource.data.uid == request.auth.uid;
 
-        allow delete: if signedIn()
-          && (
-            request.auth.uid == userId
-            || isAdmin()
-          );
+        allow delete: if canInteract()
+          && request.auth.uid == userId;
       }
 
-      // -------------------------
       // POST COMMENTS
-      // -------------------------
-
       match /comments/{commentId} {
+        allow read: if canView();
 
-        allow read: if signedIn();
-
-        allow create: if signedIn()
+        allow create: if canInteract()
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.name is string
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 500;
 
-        allow delete: if signedIn()
-          && (
-            resource.data.uid == request.auth.uid
-            || isAdmin()
+        allow delete: if isAdmin()
+          || (
+            canInteract()
+            && resource.data.uid == request.auth.uid
           );
 
         allow update: if false;
       }
     }
 
-    // -------------------------
     // STORIES
-    // -------------------------
-
     match /stories/{storyId} {
+      allow read: if canView();
 
-      allow read: if signedIn();
-
-      allow create: if signedIn()
+      allow create: if canInteract()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.imageUrl is string
         && request.resource.data.createdAt is timestamp
         && request.resource.data.expiresAt is timestamp;
 
-      allow delete: if ownsDocument() || isAdmin();
+      allow delete: if isAdmin()
+        || (canInteract() && ownsDocument());
 
       allow update: if false;
 
-      // -------------------------
       // STORY VIEWS
-      // -------------------------
-
       match /views/{userId} {
-
-        allow create, update: if signedIn()
+        allow create, update: if canInteract()
           && request.auth.uid == userId
           && request.resource.data.uid == request.auth.uid;
 
-        allow read: if signedIn()
+        allow read: if canView()
           && (
             get(
               /databases/$(database)/documents/stories/$(storyId)
@@ -175,18 +177,14 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // -------------------------
       // STORY REACTIONS
-      // -------------------------
-
       match /reactions/{userId} {
-
-        allow create, update: if signedIn()
+        allow create, update: if canInteract()
           && request.auth.uid == userId
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.emoji is string;
 
-        allow read: if signedIn()
+        allow read: if canView()
           && (
             get(
               /databases/$(database)/documents/stories/$(storyId)
