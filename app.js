@@ -20,6 +20,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  getDocs,
   deleteDoc,
   updateDoc
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
@@ -49,11 +50,8 @@ let stopFeed = null;
 let stopLikes = [];
 let stopComments = [];
 let stopNotifications = null;
-let currentNotifications = [];
 
-// ======================================
 // PROFILE MENU
-// ======================================
 
 const profileMenuBtn = $("profileMenuBtn");
 const profileDropdown = $("profileDropdown");
@@ -96,9 +94,7 @@ $("editProfileLink")?.addEventListener("click", () => {
   });
 });
 
-// ======================================
 // NOTIFICATIONS
-// ======================================
 
 const notificationWrap = $("notificationWrap");
 const notificationBtn = $("notificationBtn");
@@ -109,8 +105,6 @@ const markAllReadBtn = $("markAllReadBtn");
 
 function closeNotificationPanel() {
   if (notificationPanel) notificationPanel.hidden = true;
-
-  notificationBtn?.setAttribute("aria-expanded", "false");
 }
 
 notificationBtn?.addEventListener("click", event => {
@@ -118,14 +112,7 @@ notificationBtn?.addEventListener("click", event => {
 
   if (!notificationPanel) return;
 
-  const opening = notificationPanel.hidden;
-
-  notificationPanel.hidden = !opening;
-
-  notificationBtn.setAttribute(
-    "aria-expanded",
-    String(opening)
-  );
+  notificationPanel.hidden = !notificationPanel.hidden;
 });
 
 document.addEventListener("click", event => {
@@ -137,12 +124,10 @@ document.addEventListener("click", event => {
   }
 });
 
-function renderNotifications() {
+function renderNotifications(items) {
   if (!notificationList) return;
 
-  const unread = currentNotifications.filter(
-    item => item.read !== true
-  ).length;
+  const unread = items.filter(item => !item.read).length;
 
   if (notificationCount) {
     notificationCount.textContent =
@@ -151,31 +136,35 @@ function renderNotifications() {
     notificationCount.hidden = unread === 0;
   }
 
-  if (!currentNotifications.length) {
+  if (!items.length) {
     notificationList.innerHTML =
-      '<p class="notification-empty">No notifications yet.</p>';
-
+      '<p class="muted">No notifications yet.</p>';
     return;
   }
 
-  notificationList.innerHTML = currentNotifications
-    .map(item => {
-      const message = safe(
-        item.message || "You have a new notification."
-      );
+  notificationList.innerHTML = items.map(item => {
+    const actor = safe(item.actorName || "PicShare member");
 
-      const time = item.createdAt?.toDate
-        ? item.createdAt.toDate().toLocaleString()
-        : "Just now";
+    let message = "interacted with your post.";
 
-      return `
-        <div class="notification-item ${item.read ? "" : "unread"}">
-          <div>${message}</div>
-          <small>${safe(time)}</small>
-        </div>
-      `;
-    })
-    .join("");
+    if (item.type === "like") {
+      message = "liked your post.";
+    } else if (item.type === "comment") {
+      message = "commented on your post.";
+    }
+
+    const comment = item.commentText
+      ? `<p>${safe(item.commentText)}</p>`
+      : "";
+
+    return `
+      <div class="notification-item ${item.read ? "" : "unread"}">
+        <strong>${actor}</strong>
+        ${message}
+        ${comment}
+      </div>
+    `;
+  }).join("");
 }
 
 function startNotifications(user) {
@@ -184,32 +173,27 @@ function startNotifications(user) {
     stopNotifications = null;
   }
 
-  currentNotifications = [];
-  renderNotifications();
-
-  const notificationsQuery = query(
+  const notificationsRef = query(
     collection(db, "users", user.uid, "notifications"),
     orderBy("createdAt", "desc")
   );
 
   stopNotifications = onSnapshot(
-    notificationsQuery,
-
+    notificationsRef,
     snapshot => {
-      currentNotifications = snapshot.docs.map(item => ({
-        id: item.id,
-        ...item.data()
+      const items = snapshot.docs.map(notificationDoc => ({
+        id: notificationDoc.id,
+        ...notificationDoc.data()
       }));
 
-      renderNotifications();
+      renderNotifications(items);
     },
-
     error => {
-      console.error("Notifications error:", error);
+      console.error("Notification error:", error);
 
       if (notificationList) {
         notificationList.textContent =
-          "Could not load notifications.";
+          "Notifications could not load.";
       }
     }
   );
@@ -225,19 +209,15 @@ async function sendNotification(
 ) {
   if (!recipientUid || recipientUid === actorUid) return;
 
-  const message = type === "like"
-    ? `${actorName} liked your post.`
-    : `${actorName} commented on your post: "${commentText}"`;
-
   try {
     await addDoc(
       collection(db, "users", recipientUid, "notifications"),
       {
-        type,
         actorUid,
         actorName,
         postId,
-        message,
+        type,
+        commentText,
         read: false,
         createdAt: serverTimestamp()
       }
@@ -252,37 +232,28 @@ markAllReadBtn?.addEventListener("click", async () => {
 
   if (!user) return;
 
-  const unread = currentNotifications.filter(
-    item => item.read !== true
-  );
-
   markAllReadBtn.disabled = true;
 
   try {
-    await Promise.all(
-      unread.map(item =>
-        updateDoc(
-          doc(
-            db,
-            "users",
-            user.uid,
-            "notifications",
-            item.id
-          ),
-          { read: true }
-        )
-      )
+    const snapshot = await getDocs(
+      collection(db, "users", user.uid, "notifications")
     );
+
+    const updates = snapshot.docs
+      .filter(item => !item.data().read)
+      .map(item =>
+        updateDoc(item.ref, { read: true })
+      );
+
+    await Promise.all(updates);
   } catch (error) {
-    alert("Could not mark notifications as read: " + error.message);
+    console.error("Could not mark notifications as read:", error);
   } finally {
     markAllReadBtn.disabled = false;
   }
 });
 
-// ======================================
 // MESSAGES
-// ======================================
 
 function showMessage(message, error = false) {
   $("authMessage").textContent = message;
@@ -297,9 +268,7 @@ function getInputs() {
   };
 }
 
-// ======================================
 // CLEAN UP LISTENERS
-// ======================================
 
 function stopAllListeners() {
   stopLikes.forEach(stop => stop());
@@ -309,9 +278,7 @@ function stopAllListeners() {
   stopComments = [];
 }
 
-// ======================================
 // PHOTO UPLOAD HELPER
-// ======================================
 
 async function uploadImage(user, file) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -352,9 +319,7 @@ async function uploadImage(user, file) {
   return result.publicUrl;
 }
 
-// ======================================
 // PROFILE DISPLAY
-// ======================================
 
 async function loadProfile(user) {
   const profileRef = doc(db, "users", user.uid);
@@ -391,9 +356,7 @@ async function loadProfile(user) {
   }
 }
 
-// ======================================
 // SAVE PROFILE
-// ======================================
 
 $("saveProfileBtn").addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -445,9 +408,7 @@ $("saveProfileBtn").addEventListener("click", async () => {
   }
 });
 
-// ======================================
 // SIGN UP
-// ======================================
 
 $("signUpBtn").addEventListener("click", async () => {
   const { email, password, name } = getInputs();
@@ -483,9 +444,7 @@ $("signUpBtn").addEventListener("click", async () => {
   }
 });
 
-// ======================================
 // SIGN IN
-// ======================================
 
 $("signInBtn").addEventListener("click", async () => {
   const { email, password } = getInputs();
@@ -502,9 +461,7 @@ $("signInBtn").addEventListener("click", async () => {
   }
 });
 
-// ======================================
 // SIGN OUT
-// ======================================
 
 $("signOutBtn").addEventListener("click", async () => {
   closeProfileMenu();
@@ -512,9 +469,7 @@ $("signOutBtn").addEventListener("click", async () => {
   await signOut(auth);
 });
 
-// ======================================
 // PHOTO UPLOAD FOR POSTS
-// ======================================
 
 $("uploadPhotoBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -558,18 +513,14 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
   }
 });
 
-// ======================================
 // CAPTION COUNTER
-// ======================================
 
 $("caption").addEventListener("input", () => {
   $("charCount").textContent =
     `${$("caption").value.length} / 220`;
 });
 
-// ======================================
 // TEXT POSTS
-// ======================================
 
 $("publishBtn").addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -606,9 +557,7 @@ $("publishBtn").addEventListener("click", async () => {
   }
 });
 
-// ======================================
 // LIKE AND UNLIKE
-// ======================================
 
 async function toggleLike(postId, button) {
   const user = auth.currentUser;
@@ -630,12 +579,17 @@ async function toggleLike(postId, button) {
         createdAt: serverTimestamp()
       });
 
+      // SEND LIKE NOTIFICATION
+
       const postSnap = await getDoc(doc(db, "posts", postId));
 
       if (postSnap.exists()) {
         const post = postSnap.data();
 
-        const profileSnap = await getDoc(doc(db, "users", user.uid));
+        const profileSnap = await getDoc(
+          doc(db, "users", user.uid)
+        );
+
         const profile = profileSnap.exists()
           ? profileSnap.data()
           : {};
@@ -643,7 +597,7 @@ async function toggleLike(postId, button) {
         await sendNotification(
           post.uid,
           user.uid,
-          profile.name || user.displayName || "Someone",
+          profile.name || user.displayName || "PicShare member",
           postId,
           "like"
         );
@@ -656,9 +610,7 @@ async function toggleLike(postId, button) {
   }
 }
 
-// ======================================
 // ADD COMMENT
-// ======================================
 
 async function addComment(postId, input, button) {
   const user = auth.currentUser;
@@ -688,6 +640,8 @@ async function addComment(postId, input, button) {
       }
     );
 
+    // SEND COMMENT NOTIFICATION
+
     const postSnap = await getDoc(doc(db, "posts", postId));
 
     if (postSnap.exists()) {
@@ -696,7 +650,7 @@ async function addComment(postId, input, button) {
       await sendNotification(
         post.uid,
         user.uid,
-        profile.name || user.displayName || "Someone",
+        profile.name || user.displayName || "PicShare member",
         postId,
         "comment",
         text
@@ -711,9 +665,7 @@ async function addComment(postId, input, button) {
   }
 }
 
-// ======================================
 // DELETE COMMENT
-// ======================================
 
 async function deleteComment(postId, commentId) {
   const user = auth.currentUser;
@@ -730,9 +682,7 @@ async function deleteComment(postId, commentId) {
   }
 }
 
-// ======================================
 // AVATAR HTML
-// ======================================
 
 function avatarHTML(name, photoURL, className) {
   if (photoURL) {
@@ -753,16 +703,14 @@ function avatarHTML(name, photoURL, className) {
   `;
 }
 
-// ======================================
-// FEED — INCLUDES OLDER POSTS
-// WITHOUT TIMESTAMPS
-// ======================================
+// FEED — INCLUDES OLDER POSTS WITHOUT TIMESTAMPS
 
 function startFeed() {
   if (stopFeed) stopFeed();
 
   stopAllListeners();
 
+  // Do not use orderBy here. It excludes documents without createdAt.
   const q = collection(db, "posts");
 
   stopFeed = onSnapshot(
@@ -774,7 +722,6 @@ function startFeed() {
       const posts = [...snapshot.docs].sort((a, b) => {
         const timeA = a.data().createdAt?.toMillis?.() || 0;
         const timeB = b.data().createdAt?.toMillis?.() || 0;
-
         return timeB - timeA;
       });
 
@@ -784,7 +731,6 @@ function startFeed() {
       if (!posts.length) {
         $("feed").innerHTML =
           '<div class="card empty"><b>Your feed is waiting.</b> Be the first to share a message.</div>';
-
         return;
       }
 
@@ -809,7 +755,6 @@ function startFeed() {
 
             <div class="post-head">
               ${avatarHTML(p.name, p.photoURL, "mini-avatar")}
-
               <div>
                 <div class="post-author">
                   ${safe(p.name || "PicShare member")}
@@ -836,7 +781,6 @@ function startFeed() {
             </div>
 
             <div class="comments-section">
-
               <div class="comments-title">💬 Comments</div>
 
               <div
@@ -860,7 +804,6 @@ function startFeed() {
 
                 <button type="submit">Send</button>
               </form>
-
             </div>
 
           </article>
@@ -905,9 +848,8 @@ function startFeed() {
           likesRef,
 
           likesSnapshot => {
-            const button = [
-              ...document.querySelectorAll(".like-button")
-            ].find(item => item.dataset.postId === postId);
+            const button = [...document.querySelectorAll(".like-button")]
+              .find(item => item.dataset.postId === postId);
 
             if (!button) return;
 
@@ -952,7 +894,6 @@ function startFeed() {
             if (commentsSnapshot.empty) {
               container.innerHTML =
                 '<p class="muted">No comments yet. Be the first!</p>';
-
               return;
             }
 
@@ -969,7 +910,6 @@ function startFeed() {
 
               return `
                 <div class="comment-item">
-
                   ${avatarHTML(c.name, c.photoURL, "comment-avatar")}
 
                   <div class="comment-content">
@@ -1026,9 +966,7 @@ function startFeed() {
   );
 }
 
-// ======================================
 // AUTHENTICATION STATE
-// ======================================
 
 onAuthStateChanged(auth, async user => {
   $("authCard").hidden = !!user;
@@ -1073,7 +1011,6 @@ onAuthStateChanged(auth, async user => {
     $("profileNameInput").value = "";
 
     const oldAvatar = $("profileDisplayPhoto");
-
     if (oldAvatar) oldAvatar.remove();
 
     $("profileInitial").hidden = false;
@@ -1089,9 +1026,16 @@ onAuthStateChanged(auth, async user => {
       stopNotifications = null;
     }
 
-    currentNotifications = [];
-    renderNotifications();
-
     stopAllListeners();
+
+    if (notificationCount) {
+      notificationCount.textContent = "0";
+      notificationCount.hidden = true;
+    }
+
+    if (notificationList) {
+      notificationList.innerHTML =
+        '<p class="muted">Sign in to see notifications.</p>';
+    }
   }
 });
