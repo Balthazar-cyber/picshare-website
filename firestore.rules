@@ -90,7 +90,7 @@ service cloud.firestore {
       }
     }
 
-    // PHOTO STORIES
+    // STORIES
     match /stories/{storyId} {
 
       allow read: if signedIn()
@@ -114,6 +114,50 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid);
 
       allow update: if false;
+
+      // STORY VIEWS
+      match /views/{viewerId} {
+
+        allow read: if signedIn()
+          && (
+            isAdmin()
+            || get(/databases/$(database)/documents/stories/$(storyId)).data.uid
+              == request.auth.uid
+          );
+
+        allow create: if signedIn()
+          && canAccess(request.auth.uid)
+          && request.auth.uid == viewerId
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.createdAt == request.time
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.uid
+            != request.auth.uid;
+
+        allow update: if false;
+
+        allow delete: if isAdmin()
+          || (signedIn() && request.auth.uid == viewerId);
+      }
+
+      // STORY REACTIONS
+      match /reactions/{reactorId} {
+
+        allow read: if signedIn()
+          && (isAdmin() || canAccess(request.auth.uid));
+
+        allow create, update: if signedIn()
+          && canPost(request.auth.uid)
+          && request.auth.uid == reactorId
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.emoji == '❤️'
+          && request.resource.data.createdAt == request.time
+          && get(/databases/$(database)/documents/stories/$(storyId)).data.uid
+            != request.auth.uid;
+
+        allow delete: if signedIn()
+          && request.auth.uid == reactorId;
+      }
     }
 
     // USERS AND NOTIFICATIONS
@@ -180,6 +224,5 @@ service cloud.firestore {
 
       allow create, update, delete: if isAdmin();
     }
-
   }
 }
