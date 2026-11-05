@@ -15,43 +15,30 @@
 
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Updated stylesheet reference -->
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="./styles.css?v=4">
 </head>
 
 <body>
 
-  <!-- HEADER -->
   <header class="topbar">
-
     <a class="brand" href="#">
       <span class="brand-mark">
         <svg viewBox="0 0 40 40" aria-hidden="true">
           <path d="M10 31V9h11a9 9 0 0 1 0 18h-5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="5"
-            stroke-linecap="round"/>
+            fill="none" stroke="currentColor"
+            stroke-width="5" stroke-linecap="round"/>
           <circle cx="29" cy="28" r="4" fill="currentColor"/>
         </svg>
       </span>
-
       <span>pic<span>share</span></span>
     </a>
 
     <p class="tagline">Your moments. Your community.</p>
 
-    <!-- NOTIFICATIONS -->
     <div class="notification-wrap" id="notificationWrap" hidden>
-
-      <button
-        id="notificationBtn"
-        class="notification-btn"
-        type="button"
-        aria-label="Notifications"
-        aria-expanded="false"
-        aria-controls="notificationPanel">
-
+      <button id="notificationBtn" class="notification-btn"
+        type="button" aria-label="Notifications"
+        aria-expanded="false" aria-controls="notificationPanel">
         <span class="bell-icon" aria-hidden="true">🔔</span>
         <span id="notificationCount" class="notification-count" hidden>0</span>
       </button>
@@ -61,22 +48,15 @@
           <strong>Notifications</strong>
           <button id="markAllReadBtn" type="button">Mark all as read</button>
         </div>
-
         <div id="notificationList">
           <p class="notification-empty">No notifications yet.</p>
         </div>
       </div>
-
     </div>
 
-    <!-- ACCOUNT MENU -->
     <div class="profile-menu-wrap" id="profileMenuWrap" hidden>
-
-      <button
-        id="profileMenuBtn"
-        class="secondary-btn"
-        type="button"
-        aria-expanded="false"
+      <button id="profileMenuBtn" class="secondary-btn"
+        type="button" aria-expanded="false"
         aria-controls="profileDropdown">
         My Account ▾
       </button>
@@ -84,33 +64,19 @@
       <nav id="profileDropdown" class="profile-dropdown" hidden>
         <a href="#profileCard" id="myProfileLink">My Profile</a>
         <a href="#editProfileCard" id="editProfileLink">Edit Profile</a>
-
-        <button
-          id="signOutBtn"
-          class="secondary-btn signout"
-          type="button"
-          hidden>
-          Sign out
-        </button>
+        <button id="signOutBtn" class="secondary-btn signout"
+          type="button" hidden>Sign out</button>
       </nav>
-
     </div>
-
   </header>
 
-  <!-- MAIN LAYOUT -->
   <main class="layout">
 
-    <!-- MAIN COLUMN -->
     <section class="main-column">
 
-      <!-- LOGIN AND SIGNUP -->
       <section id="authCard" class="card auth-card">
-
         <div class="auth-art">✦</div>
-
         <p class="eyebrow">WELCOME TO PICSHARE</p>
-
         <h1>Every moment<br><em>has a story.</em></h1>
 
         <p class="intro muted">
@@ -118,127 +84,84 @@
         </p>
 
         <div class="auth-fields">
-
           <label class="field-label" for="email">Email address</label>
-          <input
-            id="email"
-            type="email"
-            autocomplete="email"
+          <input id="email" type="email" autocomplete="email"
             placeholder="you@example.com">
 
           <label class="field-label" for="password">Password</label>
-          <input
-            id="password"
-            type="password"
+          <input id="password" type="password"
             autocomplete="current-password"
             placeholder="At least 6 characters">
 
           <label class="field-label" for="displayName">
             Display name <small>(for new accounts)</small>
           </label>
-
-          <input
-            id="displayName"
-            maxlength="30"
-            autocomplete="nickname"
-            placeholder="Your name">
+          <input id="displayName" maxlength="30"
+            autocomplete="nickname" placeholder="Your name">
 
           <div class="dialog-actions">
-            <button id="signInBtn" class="secondary-btn" type="button">
-              Sign in
-            </button>
-
-            <button id="signUpBtn" class="primary-btn" type="button">
-              Create account →
-            </button>
+            <button id="signInBtn" class="secondary-btn" type="button">Sign in</button>
+            <button id="signUpBtn" class="primary-btn" type="button">Create account →</button>
           </div>
 
           <p id="authMessage" class="status" aria-live="polite"></p>
-
         </div>
       </section>
 
-      <!-- MAIN APPLICATION -->
       <section id="appArea" hidden>
 
-        <!-- WELCOME -->
         <div class="welcome-strip" id="homeSection">
           <div>
             <p class="eyebrow">YOUR COMMUNITY</p>
             <h1>What's happening?</h1>
             <p class="muted">Your next great moment starts here.</p>
           </div>
-
           <div class="welcome-symbol">✳</div>
         </div>
 
-        <!-- COMMUNITY MOMENTS -->
         <section class="dynamic-section" id="momentsSection">
           <h2 class="dynamic-title">✨ Community Moments</h2>
-
           <div class="moments-row" id="dynamicMoments">
             <p class="muted">Community moments will appear here.</p>
           </div>
         </section>
 
-        <!-- POST COMPOSER -->
         <section class="composer card" id="composerSection">
-
           <div class="section-heading">
             <div>
               <p class="eyebrow">CREATE SOMETHING</p>
               <h2>Share a moment</h2>
             </div>
-
             <span class="sparkle">✦</span>
           </div>
 
-          <label class="field-label" for="caption">
-            What's on your mind?
-          </label>
-
-          <textarea
-            id="caption"
-            maxlength="220"
+          <label class="field-label" for="caption">What's on your mind?</label>
+          <textarea id="caption" maxlength="220"
             placeholder="Share something with your community..."></textarea>
 
           <div class="composer-footer">
             <span id="charCount">0 / 220</span>
-
-            <button id="publishBtn" class="primary-btn" type="button">
-              Publish post →
-            </button>
+            <button id="publishBtn" class="primary-btn" type="button">Publish post →</button>
           </div>
 
-          <div class="upload-divider">
-            <span>OR ADD A PHOTO</span>
-          </div>
+          <div class="upload-divider"><span>OR ADD A PHOTO</span></div>
 
           <label class="field-label" for="photoFile">
             Choose a photo
             <small>(JPG, PNG or WEBP · maximum 2 MB)</small>
           </label>
-
-          <input
-            id="photoFile"
-            type="file"
+          <input id="photoFile" type="file"
             accept="image/jpeg,image/png,image/webp">
 
           <div class="composer-footer">
             <span id="photoUploadStatus" aria-live="polite"></span>
-
-            <button id="uploadPhotoBtn" class="secondary-btn" type="button">
-              Upload photo
-            </button>
+            <button id="uploadPhotoBtn" class="secondary-btn" type="button">Upload photo</button>
           </div>
 
           <img id="photoPreview" alt="Uploaded photo preview" hidden>
-
         </section>
 
-        <!-- EXPLORE -->
         <section class="dynamic-section" id="exploreSection">
-
           <div class="feed-heading">
             <div>
               <p class="eyebrow">DISCOVER SOMETHING NEW</p>
@@ -249,140 +172,82 @@
           <div class="explore-grid" id="dynamicExploreGrid">
             <p class="muted">Photos shared by the community will appear here.</p>
           </div>
-
         </section>
 
-        <!-- COMMUNITY FEED -->
         <div class="feed-heading" id="feedSection">
           <div>
             <p class="eyebrow">COMMUNITY UPDATES</p>
             <h2>Recent moments</h2>
           </div>
-
           <span id="postCount" class="count">0 posts</span>
         </div>
 
         <section id="feed" class="feed" aria-live="polite"></section>
-
       </section>
     </section>
 
-    <!-- SIDEBAR -->
     <aside class="side-column">
 
-      <!-- PROFILE -->
       <section class="card profile-card" id="profileCard">
-
         <div class="profile-art">
           <span id="profileInitial">P</span>
         </div>
 
         <p class="eyebrow">YOUR PROFILE</p>
         <h2 id="profileName">Not signed in</h2>
-
         <p class="muted">Making memories, one post at a time.</p>
-
         <hr>
-
-        <p class="muted">
-          ✦ Your space to connect, share and discover.
-        </p>
-
+        <p class="muted">✦ Your space to connect, share and discover.</p>
       </section>
 
-      <!-- EDIT PROFILE -->
       <section class="card edit-profile-card" id="editProfileCard">
-
         <p class="eyebrow">PERSONALISE YOUR ACCOUNT</p>
         <h2>Edit Profile</h2>
 
-        <label class="field-label" for="profileNameInput">
-          Display name
-        </label>
+        <label class="field-label" for="profileNameInput">Display name</label>
+        <input id="profileNameInput" type="text"
+          maxlength="30" placeholder="Enter your display name">
 
-        <input
-          id="profileNameInput"
-          type="text"
-          maxlength="30"
-          placeholder="Enter your display name">
-
-        <label class="field-label" for="profilePhotoInput">
-          Profile photo
-        </label>
-
-        <input
-          id="profilePhotoInput"
-          type="file"
+        <label class="field-label" for="profilePhotoInput">Profile photo</label>
+        <input id="profilePhotoInput" type="file"
           accept="image/jpeg,image/png,image/webp">
 
-        <button id="saveProfileBtn" class="primary-btn profile-save" type="button">
-          Save changes
-        </button>
+        <button id="saveProfileBtn" class="primary-btn profile-save"
+          type="button">Save changes</button>
 
         <p id="profileStatus" class="status" aria-live="polite"></p>
-
       </section>
 
-      <!-- ABOUT -->
       <section class="card about-card">
-
         <div class="about-icon">✳</div>
-
         <p class="eyebrow">ABOUT PICSHARE</p>
-
         <h3>Share the good stuff.</h3>
-
         <p class="muted">
           A community where people share photos, captions and moments from everyday life.
         </p>
-
       </section>
 
       <p class="side-foot">PICSHARE · MADE FOR SHARING</p>
-
     </aside>
-
   </main>
 
-  <!-- FLOATING CREATE BUTTON -->
-  <button
-    id="dynamicCreateBtn"
-    class="floating-create"
-    type="button"
-    aria-label="Create a post"
-    hidden>
-    +
-  </button>
+  <button id="dynamicCreateBtn" class="floating-create"
+    type="button" aria-label="Create a post" hidden>+</button>
 
-  <!-- MOBILE NAVIGATION -->
-  <nav class="dynamic-nav" id="dynamicNav" aria-label="Main navigation" hidden>
-
-    <button type="button" data-go="homeSection">
-      <span>⌂</span>Home
-    </button>
-
-    <button type="button" data-go="exploreSection">
-      <span>▦</span>Explore
-    </button>
-
-    <button type="button" data-go="notificationWrap">
-      <span>♧</span>Alerts
-    </button>
-
-    <button type="button" data-go="profileCard">
-      <span>◉</span>Profile
-    </button>
-
+  <nav class="dynamic-nav" id="dynamicNav"
+    aria-label="Main navigation" hidden>
+    <button type="button" data-go="homeSection"><span>⌂</span>Home</button>
+    <button type="button" data-go="exploreSection"><span>▦</span>Explore</button>
+    <button type="button" data-go="notificationWrap"><span>♧</span>Alerts</button>
+    <button type="button" data-go="profileCard"><span>◉</span>Profile</button>
   </nav>
 
-  <!-- THEME SWITCH -->
-  <button id="dynamicThemeBtn" class="theme-toggle" type="button" hidden>
-    ☾ Theme
-  </button>
+  <button id="dynamicThemeBtn" class="theme-toggle"
+    type="button" hidden>☾ Theme</button>
 
-  <!-- APPLICATION SCRIPTS -->
-  <script type="module" src="app.js"></script>
-  <script src="dynamic-ui.js" defer></script>
+  <!-- Both files use JavaScript modules -->
+  <script type="module" src="./app.js?v=4"></script>
+  <script type="module" src="./dynamic-ui.js?v=4"></script>
 
 </body>
 </html>
