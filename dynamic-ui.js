@@ -30,8 +30,7 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const SUPABASE_URL =
-  "https://rcfyzegwkopysdmrqiei.supabase.co";
+const SUPABASE_URL = "https://rcfyzegwkopysdmrqiei.supabase.co";
 
 const SUPABASE_KEY =
   "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
@@ -48,7 +47,6 @@ if (!moments || !appArea) {
   let viewerStories = [];
   let selectedStory = 0;
   let storyTimer = null;
-  let countdownTimer = null;
 
   const DAY = 24 * 60 * 60 * 1000;
   const STORY_DURATION = 5000;
@@ -74,8 +72,7 @@ if (!moments || !appArea) {
   }
 
   function isActive(story) {
-    const expiry = story.expiresAt?.toMillis?.() || 0;
-    return expiry > Date.now();
+    return (story.expiresAt?.toMillis?.() || 0) > Date.now();
   }
 
   // STORY INTERFACE
@@ -121,6 +118,7 @@ if (!moments || !appArea) {
         <div class="story-actions">
           <button id="storyReact" type="button">❤️ React</button>
           <button id="storyViewers" type="button" hidden>Viewers</button>
+          <button id="storyReactions" type="button" hidden>Reactions</button>
         </div>
 
         <div id="storyViewCount" class="story-view-count"></div>
@@ -133,13 +131,13 @@ if (!moments || !appArea) {
     <div id="storyViewersModal" class="story-modal" hidden>
       <div class="story-modal-card">
         <button id="closeViewers" type="button">Close</button>
-        <h3>Story viewers</h3>
-        <div id="storyViewersList">Loading viewers...</div>
+        <h3 id="storyModalTitle">Story viewers</h3>
+        <div id="storyViewersList">Loading...</div>
       </div>
     </div>
   `);
 
-  // STORY STYLES
+  // STYLES
 
   const style = document.createElement("style");
 
@@ -348,11 +346,12 @@ if (!moments || !appArea) {
     .story-actions {
       position:absolute;
       bottom:48px;
-      left:12px;
-      right:12px;
+      left:8px;
+      right:8px;
       display:flex;
       justify-content:center;
-      gap:10px;
+      flex-wrap:wrap;
+      gap:6px;
     }
 
     .story-actions button,
@@ -360,7 +359,7 @@ if (!moments || !appArea) {
     #closeViewers {
       border:0;
       border-radius:10px;
-      padding:10px 14px;
+      padding:10px 12px;
       background:#ffffffeb;
       color:#101b2d;
       font-weight:700;
@@ -442,8 +441,8 @@ if (!moments || !appArea) {
     }
 
     const token = await user.getIdToken();
-
     const form = new FormData();
+
     form.append("file", file, file.name);
 
     const response = await fetch(
@@ -480,8 +479,7 @@ if (!moments || !appArea) {
     return `${minutes}m left`;
   }
 
-  // RENDER STORIES
-  // One circle per person, with all their active stories inside it.
+  // RENDER STORIES: GROUP BY OWNER
 
   function renderStories() {
     const activeStories = stories
@@ -512,7 +510,6 @@ if (!moments || !appArea) {
     });
 
     grouped.forEach(items => {
-      // Sort newest first for display and playback.
       items.sort((a, b) => getTime(b) - getTime(a));
 
       const latest = items[0];
@@ -531,16 +528,11 @@ if (!moments || !appArea) {
 
       button.innerHTML = `
         <div class="story-ring">${avatar}</div>
-
         <span class="story-count-badge">${count}</span>
-
         <span class="story-person-name">
           ${escapeHTML(latest.name || "Member")}
         </span>
-
-        <small class="story-countdown">
-          ${timeLeft(latest)}
-        </small>
+        <small class="story-countdown">${timeLeft(latest)}</small>
       `;
 
       button.setAttribute(
@@ -556,7 +548,7 @@ if (!moments || !appArea) {
     });
   }
 
-  // VIEW RECORD
+  // RECORD STORY VIEW
 
   async function recordView(story) {
     if (!currentUser || currentUser.uid === story.uid) return;
@@ -581,6 +573,14 @@ if (!moments || !appArea) {
   async function updateViewCount(story) {
     const countElement = document.getElementById("storyViewCount");
     const viewersButton = document.getElementById("storyViewers");
+    const reactionsButton = document.getElementById("storyReactions");
+
+    const isOwner = currentUser &&
+      (currentUser.uid === story.uid ||
+       currentUser.uid === ADMIN_UID);
+
+    viewersButton.hidden = !isOwner;
+    reactionsButton.hidden = !isOwner;
 
     try {
       const snapshot = await getDocs(
@@ -589,31 +589,28 @@ if (!moments || !appArea) {
 
       countElement.textContent = `${snapshot.size} views`;
 
-      viewersButton.hidden =
-        !currentUser ||
-        (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID);
-
     } catch (error) {
       console.error("Could not load view count:", error);
       countElement.textContent = "";
-      viewersButton.hidden = true;
     }
   }
 
-  // VIEWER LIST
+  // SHOW VIEWERS
 
   async function showViewers() {
     const story = viewerStories[selectedStory];
-
-    if (!story) return;
+    if (!story || !currentUser) return;
 
     if (
-      !currentUser ||
-      (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID)
+      currentUser.uid !== story.uid &&
+      currentUser.uid !== ADMIN_UID
     ) return;
 
     const modal = document.getElementById("storyViewersModal");
     const list = document.getElementById("storyViewersList");
+
+    document.getElementById("storyModalTitle").textContent =
+      "Story viewers";
 
     modal.hidden = false;
     list.textContent = "Loading viewers...";
@@ -645,7 +642,57 @@ if (!moments || !appArea) {
     }
   }
 
-  // REACTIONS
+  // SHOW REACTIONS
+
+  async function showReactions() {
+    const story = viewerStories[selectedStory];
+    if (!story || !currentUser) return;
+
+    if (
+      currentUser.uid !== story.uid &&
+      currentUser.uid !== ADMIN_UID
+    ) return;
+
+    const modal = document.getElementById("storyViewersModal");
+    const list = document.getElementById("storyViewersList");
+
+    document.getElementById("storyModalTitle").textContent =
+      "Story reactions";
+
+    modal.hidden = false;
+    list.textContent = "Loading reactions...";
+
+    try {
+      const snapshot = await getDocs(
+        collection(db, "stories", story.id, "reactions")
+      );
+
+      list.innerHTML = "";
+
+      if (snapshot.empty) {
+        list.textContent = "No reactions yet.";
+        return;
+      }
+
+      snapshot.forEach(item => {
+        const reaction = item.data();
+        const row = document.createElement("div");
+
+        row.className = "story-viewer-row";
+        row.textContent =
+          `${reaction.emoji || "❤️"} ${
+            reaction.name || "PicShare member"
+          }`;
+
+        list.appendChild(row);
+      });
+
+    } catch (error) {
+      list.textContent = "Could not load reactions: " + error.message;
+    }
+  }
+
+  // REACT TO STORY
 
   async function reactToStory() {
     const story = viewerStories[selectedStory];
@@ -668,11 +715,13 @@ if (!moments || !appArea) {
 
       await setDoc(reactionRef, {
         uid: currentUser.uid,
+        name: currentUser.displayName || "PicShare member",
         emoji: "❤️",
         createdAt: serverTimestamp()
       });
 
-      document.getElementById("storyReact").textContent = "❤️ Reacted";
+      document.getElementById("storyReact").textContent =
+        "❤️ Reacted";
 
     } catch (error) {
       console.error("Reaction failed:", error);
@@ -688,12 +737,18 @@ if (!moments || !appArea) {
     clearTimeout(storyTimer);
 
     viewerStories = items.filter(isActive);
-    selectedStory = index;
 
-    if (!viewerStories.length || !viewerStories[selectedStory]) {
+    if (!viewerStories.length) {
       closeStory();
       return;
     }
+
+    if (index >= viewerStories.length) {
+      closeStory();
+      return;
+    }
+
+    selectedStory = index;
 
     const story = viewerStories[selectedStory];
 
@@ -705,14 +760,30 @@ if (!moments || !appArea) {
     const deleteButton = document.getElementById("deleteStoryBtn");
 
     deleteButton.hidden = !currentUser ||
-      (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID);
+      (currentUser.uid !== story.uid &&
+       currentUser.uid !== ADMIN_UID);
 
     deleteButton.onclick = async () => {
       if (!confirm("Delete this story?")) return;
 
       try {
         await deleteDoc(doc(db, "stories", story.id));
-        closeStory();
+
+        const remaining = viewerStories.filter(
+          item => item.id !== story.id
+        );
+
+        if (remaining.length) {
+          viewerStories = remaining;
+          selectedStory = Math.min(
+            selectedStory,
+            remaining.length - 1
+          );
+          openStory(viewerStories, selectedStory);
+        } else {
+          closeStory();
+        }
+
       } catch (error) {
         alert("Could not delete story: " + error.message);
       }
@@ -720,9 +791,10 @@ if (!moments || !appArea) {
 
     document.getElementById("storyReact").textContent = "❤️ React";
     document.getElementById("storyViewers").hidden = true;
+    document.getElementById("storyReactions").hidden = true;
 
-    document.getElementById("storyViewersModal").hidden = true;
     document.getElementById("storyViewer").hidden = false;
+    document.getElementById("storyViewersModal").hidden = true;
 
     const progress = document.getElementById("storyProgress");
 
@@ -758,12 +830,13 @@ if (!moments || !appArea) {
 
     document.getElementById("storyViewer").hidden = true;
     document.getElementById("storyImage").src = "";
+    document.getElementById("storyViewersModal").hidden = true;
 
     viewerStories = [];
     selectedStory = 0;
   }
 
-  // NEXT STORY
+  // NEXT AND PREVIOUS
 
   function nextStory() {
     if (selectedStory < viewerStories.length - 1) {
@@ -772,8 +845,6 @@ if (!moments || !appArea) {
       closeStory();
     }
   }
-
-  // PREVIOUS STORY
 
   function previousStory() {
     if (selectedStory > 0) {
@@ -797,6 +868,9 @@ if (!moments || !appArea) {
 
   document.getElementById("storyViewers")
     .addEventListener("click", showViewers);
+
+  document.getElementById("storyReactions")
+    .addEventListener("click", showReactions);
 
   document.getElementById("closeViewers")
     .addEventListener("click", () => {
@@ -835,7 +909,9 @@ if (!moments || !appArea) {
           photoURL: currentUser.photoURL || "",
           imageUrl,
           createdAt: serverTimestamp(),
-          expiresAt: Timestamp.fromMillis(Date.now() + DAY - 60000)
+          expiresAt: Timestamp.fromMillis(
+            Date.now() + DAY - 60000
+          )
         });
 
         showStatus("Your story has been shared!");
@@ -893,7 +969,7 @@ if (!moments || !appArea) {
 
   // UPDATE COUNTDOWN EVERY MINUTE
 
-  countdownTimer = setInterval(() => {
+  setInterval(() => {
     if (currentUser) renderStories();
   }, 60000);
 }
