@@ -20,7 +20,8 @@ import {
   doc,
   setDoc,
   getDoc,
-  deleteDoc
+  deleteDoc,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
 import { firebaseConfig } from "./firebase-config.js";
@@ -47,8 +48,12 @@ const safe = value =>
 let stopFeed = null;
 let stopLikes = [];
 let stopComments = [];
+let stopNotifications = null;
+let currentNotifications = [];
 
+// ======================================
 // PROFILE MENU
+// ======================================
 
 const profileMenuBtn = $("profileMenuBtn");
 const profileDropdown = $("profileDropdown");
@@ -91,7 +96,193 @@ $("editProfileLink")?.addEventListener("click", () => {
   });
 });
 
+// ======================================
+// NOTIFICATIONS
+// ======================================
+
+const notificationWrap = $("notificationWrap");
+const notificationBtn = $("notificationBtn");
+const notificationPanel = $("notificationPanel");
+const notificationCount = $("notificationCount");
+const notificationList = $("notificationList");
+const markAllReadBtn = $("markAllReadBtn");
+
+function closeNotificationPanel() {
+  if (notificationPanel) notificationPanel.hidden = true;
+
+  notificationBtn?.setAttribute("aria-expanded", "false");
+}
+
+notificationBtn?.addEventListener("click", event => {
+  event.stopPropagation();
+
+  if (!notificationPanel) return;
+
+  const opening = notificationPanel.hidden;
+
+  notificationPanel.hidden = !opening;
+
+  notificationBtn.setAttribute(
+    "aria-expanded",
+    String(opening)
+  );
+});
+
+document.addEventListener("click", event => {
+  if (
+    notificationWrap &&
+    !notificationWrap.contains(event.target)
+  ) {
+    closeNotificationPanel();
+  }
+});
+
+function renderNotifications() {
+  if (!notificationList) return;
+
+  const unread = currentNotifications.filter(
+    item => item.read !== true
+  ).length;
+
+  if (notificationCount) {
+    notificationCount.textContent =
+      unread > 99 ? "99+" : String(unread);
+
+    notificationCount.hidden = unread === 0;
+  }
+
+  if (!currentNotifications.length) {
+    notificationList.innerHTML =
+      '<p class="notification-empty">No notifications yet.</p>';
+
+    return;
+  }
+
+  notificationList.innerHTML = currentNotifications
+    .map(item => {
+      const message = safe(
+        item.message || "You have a new notification."
+      );
+
+      const time = item.createdAt?.toDate
+        ? item.createdAt.toDate().toLocaleString()
+        : "Just now";
+
+      return `
+        <div class="notification-item ${item.read ? "" : "unread"}">
+          <div>${message}</div>
+          <small>${safe(time)}</small>
+        </div>
+      `;
+    })
+    .join("");
+}
+
+function startNotifications(user) {
+  if (stopNotifications) {
+    stopNotifications();
+    stopNotifications = null;
+  }
+
+  currentNotifications = [];
+  renderNotifications();
+
+  const notificationsQuery = query(
+    collection(db, "users", user.uid, "notifications"),
+    orderBy("createdAt", "desc")
+  );
+
+  stopNotifications = onSnapshot(
+    notificationsQuery,
+
+    snapshot => {
+      currentNotifications = snapshot.docs.map(item => ({
+        id: item.id,
+        ...item.data()
+      }));
+
+      renderNotifications();
+    },
+
+    error => {
+      console.error("Notifications error:", error);
+
+      if (notificationList) {
+        notificationList.textContent =
+          "Could not load notifications.";
+      }
+    }
+  );
+}
+
+async function sendNotification(
+  recipientUid,
+  actorUid,
+  actorName,
+  postId,
+  type,
+  commentText = ""
+) {
+  if (!recipientUid || recipientUid === actorUid) return;
+
+  const message = type === "like"
+    ? `${actorName} liked your post.`
+    : `${actorName} commented on your post: "${commentText}"`;
+
+  try {
+    await addDoc(
+      collection(db, "users", recipientUid, "notifications"),
+      {
+        type,
+        actorUid,
+        actorName,
+        postId,
+        message,
+        read: false,
+        createdAt: serverTimestamp()
+      }
+    );
+  } catch (error) {
+    console.error("Could not send notification:", error);
+  }
+}
+
+markAllReadBtn?.addEventListener("click", async () => {
+  const user = auth.currentUser;
+
+  if (!user) return;
+
+  const unread = currentNotifications.filter(
+    item => item.read !== true
+  );
+
+  markAllReadBtn.disabled = true;
+
+  try {
+    await Promise.all(
+      unread.map(item =>
+        updateDoc(
+          doc(
+            db,
+            "users",
+            user.uid,
+            "notifications",
+            item.id
+          ),
+          { read: true }
+        )
+      )
+    );
+  } catch (error) {
+    alert("Could not mark notifications as read: " + error.message);
+  } finally {
+    markAllReadBtn.disabled = false;
+  }
+});
+
+// ======================================
 // MESSAGES
+// ======================================
 
 function showMessage(message, error = false) {
   $("authMessage").textContent = message;
@@ -106,7 +297,9 @@ function getInputs() {
   };
 }
 
+// ======================================
 // CLEAN UP LISTENERS
+// ======================================
 
 function stopAllListeners() {
   stopLikes.forEach(stop => stop());
@@ -116,7 +309,9 @@ function stopAllListeners() {
   stopComments = [];
 }
 
+// ======================================
 // PHOTO UPLOAD HELPER
+// ======================================
 
 async function uploadImage(user, file) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
@@ -157,7 +352,9 @@ async function uploadImage(user, file) {
   return result.publicUrl;
 }
 
+// ======================================
 // PROFILE DISPLAY
+// ======================================
 
 async function loadProfile(user) {
   const profileRef = doc(db, "users", user.uid);
@@ -194,7 +391,9 @@ async function loadProfile(user) {
   }
 }
 
+// ======================================
 // SAVE PROFILE
+// ======================================
 
 $("saveProfileBtn").addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -246,7 +445,9 @@ $("saveProfileBtn").addEventListener("click", async () => {
   }
 });
 
+// ======================================
 // SIGN UP
+// ======================================
 
 $("signUpBtn").addEventListener("click", async () => {
   const { email, password, name } = getInputs();
@@ -282,7 +483,9 @@ $("signUpBtn").addEventListener("click", async () => {
   }
 });
 
+// ======================================
 // SIGN IN
+// ======================================
 
 $("signInBtn").addEventListener("click", async () => {
   const { email, password } = getInputs();
@@ -299,14 +502,19 @@ $("signInBtn").addEventListener("click", async () => {
   }
 });
 
+// ======================================
 // SIGN OUT
+// ======================================
 
 $("signOutBtn").addEventListener("click", async () => {
   closeProfileMenu();
+  closeNotificationPanel();
   await signOut(auth);
 });
 
+// ======================================
 // PHOTO UPLOAD FOR POSTS
+// ======================================
 
 $("uploadPhotoBtn")?.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -339,7 +547,6 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
 
     $("photoPreview").src = imageUrl;
     $("photoPreview").hidden = false;
-
     $("photoFile").value = "";
     $("caption").value = "";
     $("charCount").textContent = "0 / 220";
@@ -351,14 +558,18 @@ $("uploadPhotoBtn")?.addEventListener("click", async () => {
   }
 });
 
+// ======================================
 // CAPTION COUNTER
+// ======================================
 
 $("caption").addEventListener("input", () => {
   $("charCount").textContent =
     `${$("caption").value.length} / 220`;
 });
 
+// ======================================
 // TEXT POSTS
+// ======================================
 
 $("publishBtn").addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -395,7 +606,9 @@ $("publishBtn").addEventListener("click", async () => {
   }
 });
 
+// ======================================
 // LIKE AND UNLIKE
+// ======================================
 
 async function toggleLike(postId, button) {
   const user = auth.currentUser;
@@ -416,6 +629,25 @@ async function toggleLike(postId, button) {
         uid: user.uid,
         createdAt: serverTimestamp()
       });
+
+      const postSnap = await getDoc(doc(db, "posts", postId));
+
+      if (postSnap.exists()) {
+        const post = postSnap.data();
+
+        const profileSnap = await getDoc(doc(db, "users", user.uid));
+        const profile = profileSnap.exists()
+          ? profileSnap.data()
+          : {};
+
+        await sendNotification(
+          post.uid,
+          user.uid,
+          profile.name || user.displayName || "Someone",
+          postId,
+          "like"
+        );
+      }
     }
   } catch (error) {
     alert("Could not update like: " + error.message);
@@ -424,7 +656,9 @@ async function toggleLike(postId, button) {
   }
 }
 
+// ======================================
 // ADD COMMENT
+// ======================================
 
 async function addComment(postId, input, button) {
   const user = auth.currentUser;
@@ -454,6 +688,21 @@ async function addComment(postId, input, button) {
       }
     );
 
+    const postSnap = await getDoc(doc(db, "posts", postId));
+
+    if (postSnap.exists()) {
+      const post = postSnap.data();
+
+      await sendNotification(
+        post.uid,
+        user.uid,
+        profile.name || user.displayName || "Someone",
+        postId,
+        "comment",
+        text
+      );
+    }
+
     input.value = "";
   } catch (error) {
     alert("Could not add comment: " + error.message);
@@ -462,7 +711,9 @@ async function addComment(postId, input, button) {
   }
 }
 
+// ======================================
 // DELETE COMMENT
+// ======================================
 
 async function deleteComment(postId, commentId) {
   const user = auth.currentUser;
@@ -479,7 +730,9 @@ async function deleteComment(postId, commentId) {
   }
 }
 
+// ======================================
 // AVATAR HTML
+// ======================================
 
 function avatarHTML(name, photoURL, className) {
   if (photoURL) {
@@ -500,14 +753,16 @@ function avatarHTML(name, photoURL, className) {
   `;
 }
 
-// FEED — INCLUDES OLDER POSTS WITHOUT TIMESTAMPS
+// ======================================
+// FEED — INCLUDES OLDER POSTS
+// WITHOUT TIMESTAMPS
+// ======================================
 
 function startFeed() {
   if (stopFeed) stopFeed();
 
   stopAllListeners();
 
-  // Do not use orderBy here. It excludes documents without createdAt.
   const q = collection(db, "posts");
 
   stopFeed = onSnapshot(
@@ -519,6 +774,7 @@ function startFeed() {
       const posts = [...snapshot.docs].sort((a, b) => {
         const timeA = a.data().createdAt?.toMillis?.() || 0;
         const timeB = b.data().createdAt?.toMillis?.() || 0;
+
         return timeB - timeA;
       });
 
@@ -528,6 +784,7 @@ function startFeed() {
       if (!posts.length) {
         $("feed").innerHTML =
           '<div class="card empty"><b>Your feed is waiting.</b> Be the first to share a message.</div>';
+
         return;
       }
 
@@ -579,6 +836,7 @@ function startFeed() {
             </div>
 
             <div class="comments-section">
+
               <div class="comments-title">💬 Comments</div>
 
               <div
@@ -602,6 +860,7 @@ function startFeed() {
 
                 <button type="submit">Send</button>
               </form>
+
             </div>
 
           </article>
@@ -646,8 +905,9 @@ function startFeed() {
           likesRef,
 
           likesSnapshot => {
-            const button = [...document.querySelectorAll(".like-button")]
-              .find(item => item.dataset.postId === postId);
+            const button = [
+              ...document.querySelectorAll(".like-button")
+            ].find(item => item.dataset.postId === postId);
 
             if (!button) return;
 
@@ -692,6 +952,7 @@ function startFeed() {
             if (commentsSnapshot.empty) {
               container.innerHTML =
                 '<p class="muted">No comments yet. Be the first!</p>';
+
               return;
             }
 
@@ -765,7 +1026,9 @@ function startFeed() {
   );
 }
 
+// ======================================
 // AUTHENTICATION STATE
+// ======================================
 
 onAuthStateChanged(auth, async user => {
   $("authCard").hidden = !!user;
@@ -776,11 +1039,16 @@ onAuthStateChanged(auth, async user => {
     profileMenuWrap.hidden = !user;
   }
 
+  if (notificationWrap) {
+    notificationWrap.hidden = !user;
+  }
+
   closeProfileMenu();
+  closeNotificationPanel();
 
   if (user) {
-    // Start feed before loading profile.
     startFeed();
+    startNotifications(user);
 
     try {
       const userRef = doc(db, "users", user.uid);
@@ -805,6 +1073,7 @@ onAuthStateChanged(auth, async user => {
     $("profileNameInput").value = "";
 
     const oldAvatar = $("profileDisplayPhoto");
+
     if (oldAvatar) oldAvatar.remove();
 
     $("profileInitial").hidden = false;
@@ -814,6 +1083,14 @@ onAuthStateChanged(auth, async user => {
       stopFeed();
       stopFeed = null;
     }
+
+    if (stopNotifications) {
+      stopNotifications();
+      stopNotifications = null;
+    }
+
+    currentNotifications = [];
+    renderNotifications();
 
     stopAllListeners();
   }
