@@ -3,6 +3,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // -------------------------
+    // GENERAL FUNCTIONS
+    // -------------------------
+
     function signedIn() {
       return request.auth != null;
     }
@@ -18,27 +22,123 @@ service cloud.firestore {
     }
 
     // -------------------------
-    // PICSHARE POSTS
+    // USER PROFILES
     // -------------------------
+
+    match /users/{userId} {
+
+      allow read: if signedIn()
+        && (request.auth.uid == userId || isAdmin());
+
+      allow create: if signedIn()
+        && request.auth.uid == userId
+        && request.resource.data.uid == request.auth.uid;
+
+      allow update: if signedIn()
+        && (
+          request.auth.uid == userId
+          || isAdmin()
+        );
+
+      allow delete: if isAdmin();
+
+      // -------------------------
+      // USER NOTIFICATIONS
+      // -------------------------
+
+      match /notifications/{notificationId} {
+
+        // Only the recipient can read notifications.
+        allow read: if signedIn()
+          && request.auth.uid == userId;
+
+        // Only allow notifications about posts belonging
+        // to the recipient, created by another signed-in member.
+        allow create: if signedIn()
+          && request.resource.data.actorUid == request.auth.uid
+          && request.auth.uid != userId
+          && request.resource.data.type in ["like", "comment"]
+          && request.resource.data.postId is string
+          && get(
+            /databases/$(database)/documents/posts/$(request.resource.data.postId)
+          ).data.uid == userId;
+
+        // Recipient can only change the read status.
+        allow update: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data)
+            .affectedKeys().hasOnly(["read"])
+          && request.resource.data.read is bool;
+
+        allow delete: if signedIn()
+          && (request.auth.uid == userId || isAdmin());
+      }
+    }
+
+    // -------------------------
+    // POSTS
+    // -------------------------
+
     match /posts/{postId} {
 
-      // Signed-in members can view posts.
       allow read: if signedIn();
 
-      // Members can create posts under their own UID.
       allow create: if signedIn()
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.caption is string
         && request.resource.data.caption.size() <= 220;
 
-      // Members can edit or delete their own posts.
       allow update, delete: if ownsDocument() || isAdmin();
+
+      // -------------------------
+      // POST LIKES
+      // -------------------------
+
+      match /likes/{userId} {
+
+        allow read: if signedIn();
+
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.uid == request.auth.uid;
+
+        allow delete: if signedIn()
+          && (
+            request.auth.uid == userId
+            || isAdmin()
+          );
+      }
+
+      // -------------------------
+      // POST COMMENTS
+      // -------------------------
+
+      match /comments/{commentId} {
+
+        allow read: if signedIn();
+
+        allow create: if signedIn()
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 500;
+
+        allow delete: if signedIn()
+          && (
+            resource.data.uid == request.auth.uid
+            || isAdmin()
+          );
+
+        allow update: if false;
+      }
     }
 
     // -------------------------
-    // PICSHARE STORIES
+    // STORIES
     // -------------------------
+
     match /stories/{storyId} {
 
       allow read: if signedIn();
@@ -50,27 +150,25 @@ service cloud.firestore {
         && request.resource.data.createdAt is timestamp
         && request.resource.data.expiresAt is timestamp;
 
-      // Only the story owner or admin can delete a story.
       allow delete: if ownsDocument() || isAdmin();
 
-      // Story details cannot be edited directly.
       allow update: if false;
 
       // -------------------------
       // STORY VIEWS
       // -------------------------
+
       match /views/{userId} {
 
-        // A member can record their own view.
         allow create, update: if signedIn()
           && request.auth.uid == userId
           && request.resource.data.uid == request.auth.uid;
 
-        // Only the story owner or admin can see viewers.
         allow read: if signedIn()
           && (
-            get(/databases/$(database)/documents/stories/$(storyId)).data.uid
-              == request.auth.uid
+            get(
+              /databases/$(database)/documents/stories/$(storyId)
+            ).data.uid == request.auth.uid
             || isAdmin()
           );
 
@@ -80,19 +178,19 @@ service cloud.firestore {
       // -------------------------
       // STORY REACTIONS
       // -------------------------
+
       match /reactions/{userId} {
 
-        // A member can react using their own UID.
         allow create, update: if signedIn()
           && request.auth.uid == userId
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.emoji is string;
 
-        // Only the story owner or admin can see reactions.
         allow read: if signedIn()
           && (
-            get(/databases/$(database)/documents/stories/$(storyId)).data.uid
-              == request.auth.uid
+            get(
+              /databases/$(database)/documents/stories/$(storyId)
+            ).data.uid == request.auth.uid
             || isAdmin()
           );
 
