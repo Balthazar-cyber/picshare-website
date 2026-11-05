@@ -42,7 +42,6 @@ const appArea = document.getElementById("appArea");
 if (!moments || !appArea) {
   console.error("PicShare Stories: required HTML elements are missing.");
 } else {
-
   let currentUser = null;
   let stories = [];
   let stopStories = null;
@@ -66,7 +65,17 @@ if (!moments || !appArea) {
   }
 
   function showStatus(message) {
-    document.getElementById("storyStatus").textContent = message;
+    const status = document.getElementById("storyStatus");
+    if (status) status.textContent = message;
+  }
+
+  function getTime(story) {
+    return story.createdAt?.toMillis?.() || 0;
+  }
+
+  function isActive(story) {
+    const expiry = story.expiresAt?.toMillis?.() || 0;
+    return expiry > Date.now();
   }
 
   // STORY INTERFACE
@@ -102,8 +111,11 @@ if (!moments || !appArea) {
         <img id="storyImage" alt="PicShare story">
 
         <div class="story-controls">
-          <button id="storyPrevious" type="button" aria-label="Previous story">‹</button>
-          <button id="storyNext" type="button" aria-label="Next story">›</button>
+          <button id="storyPrevious" type="button"
+            aria-label="Previous story">‹</button>
+
+          <button id="storyNext" type="button"
+            aria-label="Next story">›</button>
         </div>
 
         <div class="story-actions">
@@ -126,6 +138,8 @@ if (!moments || !appArea) {
       </div>
     </div>
   `);
+
+  // STORY STYLES
 
   const style = document.createElement("style");
 
@@ -158,18 +172,25 @@ if (!moments || !appArea) {
       color:#159e8e;
     }
 
+    #addStoryBtn:disabled {
+      opacity:.6;
+      cursor:not-allowed;
+    }
+
     #storyStatus {
       font-size:13px;
       margin-top:8px;
     }
 
     .story-person {
+      position:relative;
       flex:0 0 78px;
       text-align:center;
       border:0;
       background:none;
       cursor:pointer;
       color:inherit;
+      padding:0;
     }
 
     .story-ring {
@@ -179,6 +200,7 @@ if (!moments || !appArea) {
       margin:auto;
       border-radius:50%;
       background:linear-gradient(135deg,#20b8a4,#8165ef,#ff9d54);
+      box-sizing:border-box;
     }
 
     .story-ring img,
@@ -215,6 +237,25 @@ if (!moments || !appArea) {
       font-size:10px;
       color:#159e8e;
       font-weight:700;
+    }
+
+    .story-count-badge {
+      position:absolute;
+      top:0;
+      right:0;
+      min-width:21px;
+      height:21px;
+      padding:0 5px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:20px;
+      background:#159e8e;
+      color:white;
+      font-size:11px;
+      font-weight:800;
+      border:2px solid white;
+      box-sizing:border-box;
     }
 
     .story-viewer {
@@ -440,17 +481,20 @@ if (!moments || !appArea) {
   }
 
   // RENDER STORIES
+  // One circle per person, with all their active stories inside it.
 
   function renderStories() {
-    const activeStories = stories.filter(story =>
-      (story.expiresAt?.toMillis?.() || 0) > Date.now()
-    );
+    const activeStories = stories
+      .filter(isActive)
+      .sort((a, b) => getTime(b) - getTime(a));
 
     moments.innerHTML = "";
 
     if (!activeStories.length) {
       moments.innerHTML = `
-        <p class="muted">No active stories yet. Share the first one!</p>
+        <p class="muted">
+          No active stories yet. Share the first one!
+        </p>
       `;
       return;
     }
@@ -458,12 +502,21 @@ if (!moments || !appArea) {
     const grouped = new Map();
 
     activeStories.forEach(story => {
-      if (!grouped.has(story.uid)) grouped.set(story.uid, []);
+      if (!story.uid) return;
+
+      if (!grouped.has(story.uid)) {
+        grouped.set(story.uid, []);
+      }
+
       grouped.get(story.uid).push(story);
     });
 
     grouped.forEach(items => {
+      // Sort newest first for display and playback.
+      items.sort((a, b) => getTime(b) - getTime(a));
+
       const latest = items[0];
+      const count = items.length;
 
       const avatar = latest.photoURL
         ? `<img src="${escapeHTML(latest.photoURL)}" alt="">`
@@ -472,18 +525,33 @@ if (!moments || !appArea) {
           }</span>`;
 
       const button = document.createElement("button");
+
       button.className = "story-person";
       button.type = "button";
 
       button.innerHTML = `
         <div class="story-ring">${avatar}</div>
+
+        <span class="story-count-badge">${count}</span>
+
         <span class="story-person-name">
           ${escapeHTML(latest.name || "Member")}
         </span>
-        <small class="story-countdown">${timeLeft(latest)}</small>
+
+        <small class="story-countdown">
+          ${timeLeft(latest)}
+        </small>
       `;
 
-      button.addEventListener("click", () => openStory(items, 0));
+      button.setAttribute(
+        "aria-label",
+        `${latest.name || "Member"} has ${count} active stories`
+      );
+
+      button.addEventListener("click", () => {
+        openStory(items, 0);
+      });
+
       moments.appendChild(button);
     });
   }
@@ -619,12 +687,18 @@ if (!moments || !appArea) {
 
     clearTimeout(storyTimer);
 
-    viewerStories = items;
+    viewerStories = items.filter(isActive);
     selectedStory = index;
+
+    if (!viewerStories.length || !viewerStories[selectedStory]) {
+      closeStory();
+      return;
+    }
 
     const story = viewerStories[selectedStory];
 
     document.getElementById("storyImage").src = story.imageUrl;
+
     document.getElementById("storyOwner").textContent =
       story.name || "PicShare member";
 
@@ -647,9 +721,11 @@ if (!moments || !appArea) {
     document.getElementById("storyReact").textContent = "❤️ React";
     document.getElementById("storyViewers").hidden = true;
 
+    document.getElementById("storyViewersModal").hidden = true;
     document.getElementById("storyViewer").hidden = false;
 
     const progress = document.getElementById("storyProgress");
+
     progress.style.transition = "none";
     progress.style.width = "0%";
 
@@ -675,6 +751,8 @@ if (!moments || !appArea) {
     }, STORY_DURATION);
   }
 
+  // CLOSE STORY
+
   function closeStory() {
     clearTimeout(storyTimer);
 
@@ -682,7 +760,10 @@ if (!moments || !appArea) {
     document.getElementById("storyImage").src = "";
 
     viewerStories = [];
+    selectedStory = 0;
   }
+
+  // NEXT STORY
 
   function nextStory() {
     if (selectedStory < viewerStories.length - 1) {
@@ -691,6 +772,8 @@ if (!moments || !appArea) {
       closeStory();
     }
   }
+
+  // PREVIOUS STORY
 
   function previousStory() {
     if (selectedStory > 0) {
@@ -739,8 +822,8 @@ if (!moments || !appArea) {
       if (!file || !currentUser) return;
 
       const button = document.getElementById("addStoryBtn");
-      button.disabled = true;
 
+      button.disabled = true;
       showStatus("Uploading your story...");
 
       try {
@@ -752,9 +835,7 @@ if (!moments || !appArea) {
           photoURL: currentUser.photoURL || "",
           imageUrl,
           createdAt: serverTimestamp(),
-          expiresAt: Timestamp.fromMillis(
-            Date.now() + DAY - 60000
-          )
+          expiresAt: Timestamp.fromMillis(Date.now() + DAY - 60000)
         });
 
         showStatus("Your story has been shared!");
@@ -784,6 +865,7 @@ if (!moments || !appArea) {
     if (!user) {
       stories = [];
       renderStories();
+      closeStory();
       return;
     }
 
@@ -814,5 +896,4 @@ if (!moments || !appArea) {
   countdownTimer = setInterval(() => {
     if (currentUser) renderStories();
   }, 60000);
-
 }
