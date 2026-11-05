@@ -1,30 +1,17 @@
 import {
-  initializeApp,
-  getApps,
-  getApp
+  initializeApp, getApps, getApp
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 
 import {
-  getAuth,
-  onAuthStateChanged
+  getAuth, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
 import { firebaseConfig } from "./firebase-config.js";
 
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  serverTimestamp,
-  Timestamp,
-  deleteDoc,
-  doc,
-  setDoc,
-  getDocs,
-  getDoc
+  getFirestore, collection, addDoc, onSnapshot,
+  query, orderBy, serverTimestamp, Timestamp,
+  deleteDoc, doc, setDoc, getDocs, getDoc
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -66,6 +53,8 @@ if (!moments || !appArea) {
     if (element) element.textContent = message;
   }
 
+  // STORY INTERFACE
+
   const storySection =
     moments.closest("#momentsSection") || moments.parentElement;
 
@@ -101,10 +90,10 @@ if (!moments || !appArea) {
         <div class="story-actions">
           <button id="storyReact" type="button">❤️ React</button>
           <button id="storyViewers" type="button" hidden>Viewers</button>
-          <button id="storyReactions" type="button" hidden>Reactions</button>
         </div>
 
         <div id="storyViewCount" class="story-view-count"></div>
+
         <button id="deleteStoryBtn" class="story-delete"
           type="button" hidden>Delete story</button>
       </div>
@@ -113,13 +102,14 @@ if (!moments || !appArea) {
     <div id="storyViewersModal" class="story-modal" hidden>
       <div class="story-modal-card">
         <button id="closeViewers" type="button">Close</button>
-        <h3 id="storyListTitle">Story viewers</h3>
-        <div id="storyViewersList"></div>
+        <h3>Story viewers</h3>
+        <div id="storyViewersList">Loading viewers...</div>
       </div>
     </div>
   `);
 
   const style = document.createElement("style");
+
   style.textContent = `
     .moments-row {
       display:flex;
@@ -128,7 +118,9 @@ if (!moments || !appArea) {
       padding:8px 2px 16px;
     }
 
-    .story-create-area { margin:10px 0 15px; }
+    .story-create-area {
+      margin:10px 0 15px;
+    }
 
     #addStoryBtn {
       display:flex;
@@ -142,8 +134,15 @@ if (!moments || !appArea) {
       cursor:pointer;
     }
 
-    #addStoryBtn span { font-size:25px; color:#159e8e; }
-    #storyStatus { font-size:13px; margin-top:8px; }
+    #addStoryBtn span {
+      font-size:25px;
+      color:#159e8e;
+    }
+
+    #storyStatus {
+      font-size:13px;
+      margin-top:8px;
+    }
 
     .story-person {
       flex:0 0 78px;
@@ -163,7 +162,8 @@ if (!moments || !appArea) {
       background:linear-gradient(135deg,#20b8a4,#8165ef,#ff9d54);
     }
 
-    .story-ring img, .story-initial {
+    .story-ring img,
+    .story-initial {
       width:100%;
       height:100%;
       object-fit:cover;
@@ -208,7 +208,8 @@ if (!moments || !appArea) {
       padding:15px;
     }
 
-    .story-viewer[hidden], .story-modal[hidden] {
+    .story-viewer[hidden],
+    .story-modal[hidden] {
       display:none;
     }
 
@@ -287,18 +288,19 @@ if (!moments || !appArea) {
     .story-actions {
       position:absolute;
       bottom:48px;
-      left:8px;
-      right:8px;
+      left:12px;
+      right:12px;
       display:flex;
       justify-content:center;
-      flex-wrap:wrap;
-      gap:6px;
+      gap:10px;
     }
 
-    .story-actions button, .story-delete, #closeViewers {
+    .story-actions button,
+    .story-delete,
+    #closeViewers {
       border:0;
       border-radius:10px;
-      padding:10px 12px;
+      padding:10px 14px;
       background:#ffffffeb;
       color:#101b2d;
       font-weight:700;
@@ -342,12 +344,24 @@ if (!moments || !appArea) {
     }
 
     .story-viewer-row {
-      padding:10px 0;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      padding:12px 4px;
       border-bottom:1px solid #ddd;
     }
 
+    .viewer-heart {
+      font-size:19px;
+      flex-shrink:0;
+    }
+
     @media(max-width:600px) {
-      .story-viewer { padding:0; }
+      .story-viewer {
+        padding:0;
+      }
+
       .story-viewer-card {
         height:100%;
         width:100%;
@@ -359,8 +373,14 @@ if (!moments || !appArea) {
 
   document.head.appendChild(style);
 
+  // IMAGE UPLOAD
+
   async function uploadStoryImage(user, file) {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ];
 
     if (!allowedTypes.includes(file.type)) {
       throw new Error("Choose a JPG, PNG or WEBP image.");
@@ -395,23 +415,20 @@ if (!moments || !appArea) {
     return result.publicUrl;
   }
 
+  // COUNTDOWN
+
   function timeLeft(story) {
     const expiry = story.expiresAt?.toMillis?.() || 0;
     const remaining = Math.max(0, expiry - Date.now());
+
     const hours = Math.floor(remaining / 3600000);
     const minutes = Math.floor((remaining % 3600000) / 60000);
 
-    return hours > 0
-      ? `${hours}h ${minutes}m left`
-      : `${minutes}m left`;
+    if (hours > 0) return `${hours}h ${minutes}m left`;
+    return `${minutes}m left`;
   }
 
-  async function getReactionCount(storyId) {
-    const snapshot = await getDocs(
-      collection(db, "stories", storyId, "reactions")
-    );
-    return snapshot.size;
-  }
+  // RENDER STORIES
 
   function renderStories() {
     const activeStories = stories.filter(story =>
@@ -421,8 +438,9 @@ if (!moments || !appArea) {
     moments.innerHTML = "";
 
     if (!activeStories.length) {
-      moments.innerHTML =
-        `<p class="muted">No active stories yet. Share the first one!</p>`;
+      moments.innerHTML = `
+        <p class="muted">No active stories yet. Share the first one!</p>
+      `;
       return;
     }
 
@@ -451,15 +469,15 @@ if (!moments || !appArea) {
         <span class="story-person-name">
           ${escapeHTML(latest.name || "Member")}
         </span>
-        <small class="story-countdown">
-          ${items.length} ${items.length === 1 ? "story" : "stories"}
-        </small>
+        <small class="story-countdown">${timeLeft(latest)}</small>
       `;
 
       button.addEventListener("click", () => openStory(items, 0));
       moments.appendChild(button);
     });
   }
+
+  // RECORD VIEW
 
   async function recordView(story) {
     if (!currentUser || currentUser.uid === story.uid) return;
@@ -475,93 +493,103 @@ if (!moments || !appArea) {
     });
   }
 
+  // VIEW COUNT
+
   async function updateViewCount(story) {
     const countElement = document.getElementById("storyViewCount");
     const viewersButton = document.getElementById("storyViewers");
-    const reactionsButton = document.getElementById("storyReactions");
 
     try {
-      const views = await getDocs(
-        collection(db, "stories", story.id, "views")
-      );
-
-      const reactions = await getDocs(
-        collection(db, "stories", story.id, "reactions")
-      );
+      const [viewsSnapshot, reactionsSnapshot] = await Promise.all([
+        getDocs(collection(db, "stories", story.id, "views")),
+        getDocs(collection(db, "stories", story.id, "reactions"))
+      ]);
 
       countElement.textContent =
-        `${views.size} views · ${reactions.size} reactions`;
+        `${viewsSnapshot.size} views · ${reactionsSnapshot.size} reactions`;
 
-      const isOwner = currentUser &&
-        (currentUser.uid === story.uid || currentUser.uid === ADMIN_UID);
+      viewersButton.hidden =
+        !currentUser ||
+        (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID);
 
-      viewersButton.hidden = !isOwner;
-      reactionsButton.hidden = !isOwner;
     } catch (error) {
       console.error("Could not load story details:", error);
-      countElement.textContent = "Story details unavailable";
+      countElement.textContent = "";
       viewersButton.hidden = true;
-      reactionsButton.hidden = true;
     }
   }
 
-  async function showStoryList(type) {
+  // VIEWERS LIST WITH HEARTS BESIDE REACTORS
+
+  async function showViewers() {
     const story = viewerStories[selectedStory];
-    if (!story || !currentUser) return;
+
+    if (!story) return;
 
     if (
-      currentUser.uid !== story.uid &&
-      currentUser.uid !== ADMIN_UID
+      !currentUser ||
+      (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID)
     ) return;
 
     const modal = document.getElementById("storyViewersModal");
     const list = document.getElementById("storyViewersList");
-    const title = document.getElementById("storyListTitle");
 
     modal.hidden = false;
-    title.textContent = type === "views"
-      ? "Story viewers"
-      : "Story reactions";
-    list.textContent = "Loading...";
+    list.textContent = "Loading viewers...";
 
     try {
-      const snapshot = await getDocs(
-        collection(db, "stories", story.id, type)
+      const [viewsSnapshot, reactionsSnapshot] = await Promise.all([
+        getDocs(collection(db, "stories", story.id, "views")),
+        getDocs(collection(db, "stories", story.id, "reactions"))
+      ]);
+
+      const reactedUsers = new Set(
+        reactionsSnapshot.docs.map(item => item.id)
       );
 
       list.innerHTML = "";
 
-      if (snapshot.empty) {
-        list.textContent = type === "views"
-          ? "Nobody has viewed this story yet."
-          : "Nobody has reacted to this story yet.";
+      if (viewsSnapshot.empty) {
+        list.textContent = "Nobody has viewed this story yet.";
         return;
       }
 
-      snapshot.forEach(item => {
+      viewsSnapshot.forEach(item => {
         const data = item.data();
+        const reacted = reactedUsers.has(item.id);
+
         const row = document.createElement("div");
         row.className = "story-viewer-row";
 
-        row.textContent = type === "views"
-          ? (data.name || "PicShare member")
-          : `${data.name || "PicShare member"} ${data.emoji || "❤️"}`;
+        const name = document.createElement("span");
+        name.textContent = data.name || "PicShare member";
+
+        row.appendChild(name);
+
+        if (reacted) {
+          const heart = document.createElement("span");
+          heart.className = "viewer-heart";
+          heart.textContent = "❤️";
+          heart.title = "Reacted to this story";
+          row.appendChild(heart);
+        }
 
         list.appendChild(row);
       });
+
     } catch (error) {
-      list.textContent = "Could not load list: " + error.message;
+      console.error("Could not load viewers:", error);
+      list.textContent = "Could not load viewers: " + error.message;
     }
   }
+
+  // REACT TO STORY
 
   async function reactToStory() {
     const story = viewerStories[selectedStory];
     const button = document.getElementById("storyReact");
 
-    if (!currentUser || !story) {
-      showStatus("Please sign in to react.");
-      return;
-    }
+    if (!currentUser || !story) return;
 
     if (currentUser.uid === story.uid) {
       showStatus("You cannot react to your own story.");
@@ -587,14 +615,18 @@ if (!moments || !appArea) {
       showStatus("Your reaction was sent!");
 
       await updateViewCount(story);
+
     } catch (error) {
       console.error("Reaction failed:", error);
       button.textContent = "❤️ React";
       showStatus("Could not react: " + error.message);
+
     } finally {
       button.disabled = false;
     }
   }
+
+  // OPEN STORY
 
   async function openStory(items, index) {
     if (!items.length || index < 0 || index >= items.length) return;
@@ -607,6 +639,7 @@ if (!moments || !appArea) {
     const story = viewerStories[selectedStory];
 
     document.getElementById("storyImage").src = story.imageUrl;
+
     document.getElementById("storyOwner").textContent =
       story.name || "PicShare member";
 
@@ -635,6 +668,7 @@ if (!moments || !appArea) {
         const reactionRef = doc(
           db, "stories", story.id, "reactions", currentUser.uid
         );
+
         const existingReaction = await getDoc(reactionRef);
 
         if (existingReaction.exists()) {
@@ -646,7 +680,6 @@ if (!moments || !appArea) {
     }
 
     document.getElementById("storyViewers").hidden = true;
-    document.getElementById("storyReactions").hidden = true;
     document.getElementById("storyViewer").hidden = false;
 
     const progress = document.getElementById("storyProgress");
@@ -677,8 +710,10 @@ if (!moments || !appArea) {
 
   function closeStory() {
     clearTimeout(storyTimer);
+
     document.getElementById("storyViewer").hidden = true;
     document.getElementById("storyImage").src = "";
+
     viewerStories = [];
   }
 
@@ -696,6 +731,8 @@ if (!moments || !appArea) {
     }
   }
 
+  // BUTTON EVENTS
+
   document.getElementById("storyClose")
     .addEventListener("click", closeStory);
 
@@ -709,10 +746,7 @@ if (!moments || !appArea) {
     .addEventListener("click", reactToStory);
 
   document.getElementById("storyViewers")
-    .addEventListener("click", () => showStoryList("views"));
-
-  document.getElementById("storyReactions")
-    .addEventListener("click", () => showStoryList("reactions"));
+    .addEventListener("click", showViewers);
 
   document.getElementById("closeViewers")
     .addEventListener("click", () => {
@@ -729,13 +763,17 @@ if (!moments || !appArea) {
       document.getElementById("storyFile").click();
     });
 
+  // UPLOAD STORY
+
   document.getElementById("storyFile")
     .addEventListener("change", async event => {
       const file = event.target.files?.[0];
+
       if (!file || !currentUser) return;
 
       const button = document.getElementById("addStoryBtn");
       button.disabled = true;
+
       showStatus("Uploading your story...");
 
       try {
@@ -747,18 +785,22 @@ if (!moments || !appArea) {
           photoURL: currentUser.photoURL || "",
           imageUrl,
           createdAt: serverTimestamp(),
-          expiresAt: Timestamp.fromMillis(Date.now() + DAY)
+          expiresAt: Timestamp.fromMillis(Date.now() + DAY - 60000)
         });
 
         showStatus("Your story has been shared!");
+
       } catch (error) {
         console.error("Story upload failed:", error);
         showStatus("Could not post story: " + error.message);
+
       } finally {
         button.disabled = false;
         event.target.value = "";
       }
     });
+
+  // AUTHENTICATION AND LIVE STORIES
 
   onAuthStateChanged(auth, user => {
     currentUser = user;
@@ -797,6 +839,8 @@ if (!moments || !appArea) {
       }
     );
   });
+
+  // UPDATE COUNTDOWN EVERY MINUTE
 
   setInterval(() => {
     if (currentUser) renderStories();
