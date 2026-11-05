@@ -1207,3 +1207,408 @@ select:focus-visible {
     animation-duration: .01ms !important;
   }
 }
+
+/* =========================================================
+   PICSHARE — STAGE 2: PREMIUM POSTS + STORIES
+   These rules intentionally override the dynamic story
+   styles injected by dynamic-ui.js without changing its logic.
+   ========================================================= */
+
+/* Story creation control */
+.story-create-area {
+  margin: 12px 0 8px !important;
+}
+
+#addStoryBtn {
+  min-height: 48px !important;
+  padding: 10px 16px !important;
+  border: 1px solid #c8eee6 !important;
+  border-radius: 15px !important;
+  background: linear-gradient(110deg, #e9faf6, #dff7f1) !important;
+  color: #116f65 !important;
+  box-shadow: 0 5px 15px rgba(20, 145, 127, .07);
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+#addStoryBtn span {
+  display: grid;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border-radius: 10px;
+  background: #c9f1e9;
+  color: #087568 !important;
+  font-size: 23px !important;
+  line-height: 1;
+}
+
+#addStoryBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 20px rgba(20, 145, 127, .12);
+}
+
+#storyStatus {
+  min-height: 18px;
+  color: var(--teal-deep);
+  font-size: 11px !important;
+  line-height: 1.5;
+}
+
+/* Story rail and profile bubbles */
+#dynamicMoments {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 15px !important;
+  width: 100%;
+  max-width: 100%;
+  padding: 10px 3px 16px !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+#dynamicMoments .story-person {
+  flex: 0 0 82px !important;
+  width: 82px;
+  padding: 0 2px 5px !important;
+  border: 0 !important;
+  border-radius: 14px;
+  background: transparent !important;
+  color: var(--ink) !important;
+  text-align: center;
+  scroll-snap-align: start;
+}
+
+#dynamicMoments .story-ring {
+  width: 72px !important;
+  height: 72px !important;
+  padding: 3px !important;
+  margin: 0 auto !important;
+  border-radius: 50% !important;
+  background: conic-gradient(from 25deg, #20b8a4, #8068e9, #f2a05e, #20b8a4) !important;
+  box-shadow: 0 4px 13px rgba(29, 93, 89, .15);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+#dynamicMoments .story-person:hover .story-ring {
+  transform: translateY(-3px) scale(1.035);
+  box-shadow: 0 8px 19px rgba(29, 93, 89, .2);
+}
+
+#dynamicMoments .story-ring img,
+#dynamicMoments .story-initial {
+  display: grid;
+  width: 100% !important;
+  height: 100% !important;
+  border: 3px solid #fff !important;
+  border-radius: 50% !important;
+  object-fit: cover;
+}
+
+#dynamicMoments .story-initial {
+  place-items: center;
+  background: #e4f8f3 !important;
+  color: #116f65 !important;
+  font-size: 23px !important;
+  font-weight: 800;
+}
+
+#dynamicMoments .story-person-name {
+  display: block;
+  max-width: 82px;
+  margin-top: 8px !important;
+  overflow: hidden;
+  color: #34495a;
+  font-size: 11px !important;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#dynamicMoments .story-countdown {
+  display: block;
+  margin-top: 4px !important;
+  color: #168f80 !important;
+  font-size: 9px !important;
+  font-weight: 700;
+}
+
+/* Full-screen story viewer */
+#storyViewer {
+  background: rgba(5, 13, 23, .96) !important;
+  backdrop-filter: blur(12px);
+}
+
+#storyViewer .story-viewer-card {
+  width: min(440px, 100%) !important;
+  height: min(790px, 92vh) !important;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 24px !important;
+  background: #101b2d !important;
+  box-shadow: 0 25px 80px rgba(0,0,0,.4);
+}
+
+#storyViewer .story-viewer-card > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#storyViewer .story-progress {
+  top: 14px !important;
+  right: 14px !important;
+  left: 14px !important;
+  height: 4px !important;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgba(255,255,255,.3) !important;
+}
+
+#storyViewer .story-progress span {
+  border-radius: inherit;
+  background: linear-gradient(90deg, #20b8a4, #fff) !important;
+}
+
+#storyViewer .story-owner {
+  top: 31px !important;
+  left: 17px !important;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 20px;
+  background: rgba(9, 20, 32, .55);
+  color: #fff !important;
+  font-size: 12px;
+  backdrop-filter: blur(8px);
+}
+
+#storyViewer .story-close {
+  top: 13px !important;
+  right: 13px !important;
+  width: 40px !important;
+  height: 40px !important;
+  border: 1px solid rgba(255,255,255,.2) !important;
+  background: rgba(255,255,255,.14) !important;
+  color: #fff !important;
+  font-size: 25px !important;
+  backdrop-filter: blur(8px);
+}
+
+#storyViewer .story-controls button {
+  width: 48px !important;
+  border-radius: 12px;
+  color: #fff !important;
+  font-size: 42px !important;
+  text-shadow: 0 2px 12px rgba(0,0,0,.5);
+}
+
+#storyViewer .story-controls button:hover {
+  background: rgba(255,255,255,.12);
+}
+
+#storyViewer .story-actions {
+  bottom: 49px !important;
+  gap: 9px !important;
+}
+
+#storyViewer .story-actions button,
+#storyViewer .story-delete {
+  min-height: 42px;
+  padding: 10px 15px !important;
+  border: 1px solid rgba(255,255,255,.28) !important;
+  border-radius: 22px !important;
+  background: rgba(255,255,255,.94) !important;
+  color: #142638 !important;
+  font-size: 12px;
+  font-weight: 800 !important;
+}
+
+#storyViewer .story-actions button:hover {
+  background: #dff8f2 !important;
+}
+
+#storyViewer .story-view-count {
+  bottom: 17px !important;
+  left: 17px !important;
+  color: rgba(255,255,255,.88) !important;
+  font-size: 11px !important;
+}
+
+#storyViewer .story-delete {
+  top: 62px !important;
+  right: 13px !important;
+  border-color: rgba(255,255,255,.1) !important;
+  background: #bd3946 !important;
+  color: #fff !important;
+}
+
+/* Story viewers dialog */
+#storyViewersModal {
+  background: rgba(5, 13, 23, .72) !important;
+  backdrop-filter: blur(7px);
+}
+
+#storyViewersModal .story-modal-card {
+  width: min(390px, 100%) !important;
+  padding: 23px !important;
+  border: 1px solid var(--line);
+  border-radius: 20px !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,.22);
+}
+
+#storyViewersModal h3 {
+  margin: 4px 0 17px;
+  color: var(--navy);
+  font: 800 20px Manrope, sans-serif;
+}
+
+#storyViewersModal .story-viewer-row {
+  padding: 12px 2px !important;
+  border-bottom: 1px solid var(--line) !important;
+  color: #34495a;
+  font-size: 13px;
+}
+
+#storyViewersModal #closeViewers {
+  float: right;
+  border-radius: 10px !important;
+  background: var(--soft) !important;
+  color: var(--teal-deep) !important;
+}
+
+/* Richer post cards and media */
+.feed {
+  gap: 24px;
+}
+
+.post {
+  border-radius: 22px;
+  box-shadow: 0 8px 26px rgba(16, 35, 52, .06);
+}
+
+.post-head {
+  min-height: 70px;
+  padding: 17px 19px;
+}
+
+.mini-avatar {
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px #e6f7f3;
+}
+
+.post-image {
+  max-height: 680px;
+  border-radius: 17px;
+  background: #edf2f3;
+}
+
+.post-caption {
+  padding: 17px 20px 18px;
+  color: #304558;
+  font-size: 13.5px;
+  line-height: 1.85;
+}
+
+.post-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 18px 15px;
+}
+
+.post-actions button {
+  min-height: 37px;
+  padding: 8px 12px;
+  border: 1px solid #e1f1ed;
+  border-radius: 20px;
+  background: #f0faf7;
+  color: #137d70;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.post-actions button:hover {
+  border-color: #b9e9df;
+  background: #def6f0;
+}
+
+.post .comments,
+.post .comment-list {
+  padding: 0 18px 16px;
+}
+
+.post .comment {
+  padding: 10px 0;
+  border-top: 1px solid #edf1f3;
+}
+
+.post .comment-input,
+.post .comments input {
+  min-height: 42px;
+  border-radius: 22px;
+  background: #f7fafb;
+}
+
+@media (max-width: 600px) {
+  #dynamicMoments {
+    gap: 11px !important;
+    padding: 8px 1px 13px !important;
+  }
+
+  #dynamicMoments .story-person {
+    flex-basis: 76px !important;
+    width: 76px;
+  }
+
+  #dynamicMoments .story-ring {
+    width: 66px !important;
+    height: 66px !important;
+  }
+
+  #dynamicMoments .story-person-name {
+    max-width: 76px;
+  }
+
+  #storyViewer .story-viewer-card {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: none;
+    border: 0;
+    border-radius: 0 !important;
+  }
+
+  .post {
+    border-radius: 18px;
+  }
+
+  .post-actions {
+    gap: 6px;
+    padding: 0 13px 13px;
+  }
+
+  .post-actions button {
+    min-height: 35px;
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .post .comments,
+  .post .comment-list {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #dynamicMoments *,
+  #storyViewer *,
+  .post * {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+  }
+}
