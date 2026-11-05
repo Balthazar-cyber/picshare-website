@@ -442,33 +442,120 @@ textarea {
   top:92px;
 }
 
+/* REDESIGNED PROFILE CARD */
+
 .profile-card {
+  position:relative;
   text-align:center;
-  padding:27px 20px;
+  padding:30px 22px;
+  border-radius:22px;
+  background:linear-gradient(180deg,#ffffff 0%,#f5fbfa 100%);
+  border:1px solid #dfeeea;
+  overflow:hidden;
 }
 
 .profile-art {
-  width:78px;
-  height:78px;
-  border-radius:25px;
-  background:linear-gradient(140deg,#b9eee5,var(--teal));
+  width:104px;
+  height:104px;
+  margin:0 auto 17px;
+  border-radius:50%;
+  border:5px solid #e2f8f3;
+  background:linear-gradient(135deg,#20b8a4,#b9eee5);
   display:grid;
   place-items:center;
-  margin:0 auto 17px;
-  color:#0c4745;
-  font:800 29px Manrope,sans-serif;
+  overflow:hidden;
+  color:#103d3a;
+  font:800 34px Manrope,sans-serif;
+  box-shadow:0 8px 22px rgba(32,184,164,.16);
+}
+
+/* Profile image and initial */
+
+.profile-art img,
+.profile-art .profile-photo {
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:50%;
+}
+
+.profile-art img {
+  position:relative;
+}
+
+.profile-card .eyebrow {
+  margin-bottom:8px;
 }
 
 .profile-card h2 {
-  font:800 18px Manrope,sans-serif;
-  margin:0 0 6px;
+  font:800 21px Manrope,sans-serif;
+  margin:0 0 9px;
   overflow-wrap:anywhere;
 }
 
+.profile-card .muted {
+  font-size:12px;
+  line-height:1.7;
+}
+
 .profile-card hr {
+  margin:22px 0;
   border:0;
-  border-top:1px solid var(--line);
-  margin:19px 0;
+  border-top:1px solid #e4efec;
+}
+
+/* EDIT PROFILE CARD */
+
+.edit-profile-card {
+  padding:25px 22px;
+  border-radius:22px;
+  border:1px solid #e3ecef;
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+
+.edit-profile-card h2 {
+  font:800 22px Manrope,sans-serif;
+  margin:0 0 17px;
+  letter-spacing:-.5px;
+}
+
+.edit-profile-card .field-label {
+  margin-top:17px;
+}
+
+.edit-profile-card input:not([type="file"]),
+.edit-profile-card textarea {
+  border-radius:12px;
+  min-height:48px;
+}
+
+.edit-profile-card input[type="file"] {
+  display:block;
+  width:100%;
+  max-width:100%;
+  padding:12px;
+  border:1px dashed #9edbd1;
+  border-radius:12px;
+  background:#f5fbfa;
+  font-size:12px;
+}
+
+.edit-profile-card button {
+  border-radius:12px;
+}
+
+.edit-profile-card .primary-btn {
+  width:100%;
+  min-height:46px;
+  margin-top:18px;
+}
+
+#profileStatus {
+  text-align:center;
+  line-height:1.5;
+  margin-bottom:0;
 }
 
 .about-card {
@@ -869,6 +956,17 @@ textarea {
   }
 
   .dynamic-nav button { padding:9px 7px; }
+
+  .profile-card,
+  .edit-profile-card {
+    border-radius:18px;
+    padding:22px 18px;
+  }
+
+  .profile-art {
+    width:92px;
+    height:92px;
+  }
 }
 
 /* VERY SMALL PHONES */
