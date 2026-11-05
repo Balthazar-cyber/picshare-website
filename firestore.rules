@@ -9,220 +9,95 @@ service cloud.firestore {
 
     function isAdmin() {
       return signedIn()
-        && request.auth.uid == 'VXDMuU17gifoBqTkbpC55Xre9242';
+        && request.auth.uid == "VXDMuU17gifoBqTkbpC55Xre9242";
     }
 
-    function statusPath(uid) {
-      return /databases/$(database)/documents/membership_status/$(uid);
+    function ownsDocument() {
+      return signedIn()
+        && resource.data.uid == request.auth.uid;
     }
 
-    function canAccess(uid) {
-      return !exists(statusPath(uid))
-        || get(statusPath(uid)).data.status in ['active', 'restricted'];
-    }
-
-    function canPost(uid) {
-      return !exists(statusPath(uid))
-        || get(statusPath(uid)).data.status == 'active';
-    }
-
-    // POSTS
+    // -------------------------
+    // PICSHARE POSTS
+    // -------------------------
     match /posts/{postId} {
 
-      allow read: if signedIn()
-        && (isAdmin() || canAccess(request.auth.uid));
+      // Signed-in members can view posts.
+      allow read: if signedIn();
 
+      // Members can create posts under their own UID.
       allow create: if signedIn()
-        && canPost(request.auth.uid)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string
         && request.resource.data.caption is string
         && request.resource.data.caption.size() <= 220;
 
-      allow update, delete: if isAdmin()
-        || (signedIn()
-        && canPost(request.auth.uid)
-        && resource.data.uid == request.auth.uid);
-
-      // LIKES
-      match /likes/{userId} {
-
-        allow read: if signedIn()
-          && (isAdmin() || canAccess(request.auth.uid));
-
-        allow create: if signedIn()
-          && canPost(request.auth.uid)
-          && request.auth.uid == userId
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.createdAt == request.time
-          && exists(/databases/$(database)/documents/posts/$(postId));
-
-        allow delete: if signedIn()
-          && request.auth.uid == userId
-          && resource.data.uid == request.auth.uid
-          && canAccess(request.auth.uid);
-
-        allow update: if false;
-      }
-
-      // COMMENTS
-      match /comments/{commentId} {
-
-        allow read: if signedIn()
-          && (isAdmin() || canAccess(request.auth.uid));
-
-        allow create: if signedIn()
-          && canPost(request.auth.uid)
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.name is string
-          && request.resource.data.text is string
-          && request.resource.data.text.size() > 0
-          && request.resource.data.text.size() <= 500
-          && request.resource.data.createdAt == request.time
-          && exists(/databases/$(database)/documents/posts/$(postId));
-
-        allow delete: if isAdmin()
-          || (signedIn()
-          && canAccess(request.auth.uid)
-          && resource.data.uid == request.auth.uid);
-
-        allow update: if false;
-      }
+      // Members can edit or delete their own posts.
+      allow update, delete: if ownsDocument() || isAdmin();
     }
 
-    // STORIES
+    // -------------------------
+    // PICSHARE STORIES
+    // -------------------------
     match /stories/{storyId} {
 
-      allow read: if signedIn()
-        && (isAdmin() || canAccess(request.auth.uid));
+      allow read: if signedIn();
 
       allow create: if signedIn()
-        && canPost(request.auth.uid)
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.name is string
-        && request.resource.data.photoURL is string
         && request.resource.data.imageUrl is string
-        && request.resource.data.createdAt == request.time
-        && request.resource.data.expiresAt is timestamp
-        && request.resource.data.expiresAt > request.time
-        && request.resource.data.expiresAt
-          <= request.time + duration.value(24, 'h');
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.expiresAt is timestamp;
 
-      allow delete: if isAdmin()
-        || (signedIn()
-        && canAccess(request.auth.uid)
-        && resource.data.uid == request.auth.uid);
+      // Only the story owner or admin can delete a story.
+      allow delete: if ownsDocument() || isAdmin();
 
+      // Story details cannot be edited directly.
       allow update: if false;
 
+      // -------------------------
       // STORY VIEWS
-      match /views/{viewerId} {
+      // -------------------------
+      match /views/{userId} {
 
-        allow read: if signedIn()
-          && (
-            isAdmin()
-            || get(/databases/$(database)/documents/stories/$(storyId)).data.uid
-              == request.auth.uid
-          );
-
-        allow create: if signedIn()
-          && canAccess(request.auth.uid)
-          && request.auth.uid == viewerId
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.name is string
-          && request.resource.data.createdAt == request.time
-          && get(/databases/$(database)/documents/stories/$(storyId)).data.uid
-            != request.auth.uid;
-
-        allow update: if false;
-
-        allow delete: if isAdmin()
-          || (signedIn() && request.auth.uid == viewerId);
-      }
-
-      // STORY REACTIONS
-      match /reactions/{reactorId} {
-
-        allow read: if signedIn()
-          && (isAdmin() || canAccess(request.auth.uid));
-
+        // A member can record their own view.
         allow create, update: if signedIn()
-          && canPost(request.auth.uid)
-          && request.auth.uid == reactorId
-          && request.resource.data.uid == request.auth.uid
-          && request.resource.data.emoji == '❤️'
-          && request.resource.data.createdAt == request.time
-          && get(/databases/$(database)/documents/stories/$(storyId)).data.uid
-            != request.auth.uid;
+          && request.auth.uid == userId
+          && request.resource.data.uid == request.auth.uid;
 
-        allow delete: if signedIn()
-          && request.auth.uid == reactorId;
-      }
-    }
-
-    // USERS AND NOTIFICATIONS
-    match /users/{userId} {
-
-      allow read: if isAdmin()
-        || (signedIn() && request.auth.uid == userId);
-
-      allow create: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.name is string;
-
-      allow update: if signedIn()
-        && request.auth.uid == userId
-        && request.resource.data.uid == resource.data.uid;
-
-      allow delete: if isAdmin();
-
-      // NOTIFICATIONS
-      match /notifications/{notificationId} {
-
+        // Only the story owner or admin can see viewers.
         allow read: if signedIn()
-          && request.auth.uid == userId;
-
-        allow create: if signedIn()
-          && request.resource.data.actorUid == request.auth.uid
-          && request.resource.data.actorUid != userId
-          && request.resource.data.actorName is string
-          && request.resource.data.postId is string
-          && request.resource.data.type in ['like', 'comment']
-          && request.resource.data.read == false
-          && request.resource.data.createdAt == request.time
-          && exists(
-            /databases/$(database)/documents/posts/$(request.resource.data.postId)
-          )
-          && get(
-            /databases/$(database)/documents/posts/$(request.resource.data.postId)
-          ).data.uid == userId
           && (
-            request.resource.data.type != 'comment'
-            || (
-              request.resource.data.commentText is string
-              && request.resource.data.commentText.size() <= 500
-            )
+            get(/databases/$(database)/documents/stories/$(storyId)).data.uid
+              == request.auth.uid
+            || isAdmin()
           );
 
-        allow update: if signedIn()
-          && request.auth.uid == userId
-          && request.resource.data.diff(resource.data)
-            .affectedKeys().hasOnly(['read'])
-          && request.resource.data.read is bool;
-
-        allow delete: if signedIn()
-          && request.auth.uid == userId;
+        allow delete: if false;
       }
-    }
 
-    // MEMBERSHIP
-    match /membership_status/{userId} {
+      // -------------------------
+      // STORY REACTIONS
+      // -------------------------
+      match /reactions/{userId} {
 
-      allow read: if isAdmin()
-        || (signedIn() && request.auth.uid == userId);
+        // A member can react using their own UID.
+        allow create, update: if signedIn()
+          && request.auth.uid == userId
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.emoji is string;
 
-      allow create, update, delete: if isAdmin();
+        // Only the story owner or admin can see reactions.
+        allow read: if signedIn()
+          && (
+            get(/databases/$(database)/documents/stories/$(storyId)).data.uid
+              == request.auth.uid
+            || isAdmin()
+          );
+
+        allow delete: if false;
+      }
     }
   }
 }
