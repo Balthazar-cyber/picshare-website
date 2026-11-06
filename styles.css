@@ -2117,52 +2117,61 @@ button:disabled,
   }
 }
 
-/* PICSHARE NOTIFICATION PANEL FIX */
+/* PICSHARE — FINAL NOTIFICATION PANEL FIX */
 
 #notificationWrap {
-  position: relative !important;
+position: relative !important;
+flex-shrink: 0;
 }
 
 #notificationPanel {
-  position: absolute !important;
-  top: calc(100% + 12px) !important;
-  right: 0 !important;
-  left: auto !important;
+position: absolute !important;
+top: calc(100% + 10px) !important;
+right: 0 !important;
+left: auto !important;
+bottom: auto !important;
 
-  width: min(350px, calc(100vw - 24px)) !important;
-  max-width: calc(100vw - 24px) !important;
+width: min(330px, calc(100vw - 24px)) !important;
+max-width: calc(100vw - 24px) !important;
 
-  max-height: 75vh !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+max-height: 70vh !important;
+overflow-y: auto !important;
+overflow-x: hidden !important;
 
-  z-index: 9999 !important;
-  box-sizing: border-box !important;
-  border-radius: 16px !important;
-  background: white !important;
-  box-shadow: 0 12px 35px rgba(0,0,0,.15) !important;
+z-index: 9999 !important;
+box-sizing: border-box !important;
+
+border: 1px solid #e6edf0 !important;
+border-radius: 16px !important;
+background: #ffffff !important;
+color: #172638 !important;
+box-shadow: 0 12px 35px rgba(0,0,0,.15) !important;
+}
+
+#notificationPanel[hidden] {
+display: none !important;
 }
 
 #notificationList {
-  width: 100%;
-  box-sizing: border-box;
-  overflow-wrap: anywhere;
+width: 100%;
+min-width: 0;
+overflow-wrap: anywhere;
 }
 
 .notification-item {
-  padding: 13px 15px;
-  border-bottom: 1px solid #edf0f3;
-  font-size: 13px;
-  line-height: 1.5;
+padding: 13px 15px;
+border-bottom: 1px solid #edf0f3;
+font-size: 13px;
+line-height: 1.5;
 }
 
 .notification-item.unread {
-  background: #eafaf6;
+background: #eafaf6;
 }
 
 @media (max-width: 600px) {
-  #notificationPanel {
-    width: min(330px, calc(100vw - 20px)) !important;
-    max-width: calc(100vw - 20px) !important;
-  }
+#notificationPanel {
+width: min(320px, calc(100vw - 20px)) !important;
+max-width: calc(100vw - 20px) !important;
+}
 }
