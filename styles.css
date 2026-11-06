@@ -2100,3 +2100,19 @@ button:disabled,
     max-height: 32px !important;
   }
 }
+
+/* PICSHARE — NOTIFICATION PANEL POSITION FIX */
+
+@media (max-width: 900px) {
+  .notification-panel {
+    position: fixed !important;
+    top: 82px !important;
+    left: 12px !important;
+    right: auto !important;
+    width: min(330px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    max-height: 70vh;
+    overflow-y: auto;
+    z-index: 9999 !important;
+  }
+}
