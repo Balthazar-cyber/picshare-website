@@ -629,6 +629,19 @@ async function reactToStory() {
     });
 
     // Notify the owner of the story
+await addDoc(
+  collection(db, "users", story.uid, "notifications"),
+  {
+    actorUid: currentUser.uid,
+    actorName: currentUser.displayName || "PicShare member",
+    type: "story_reaction",
+    storyId: story.id,
+    read: false,
+    createdAt: serverTimestamp()
+  }
+);
+
+    // Notify the owner of the story
     await addDoc(
       collection(db, "users", story.uid, "notifications"),
       {
