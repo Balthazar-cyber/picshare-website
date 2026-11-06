@@ -2036,3 +2036,67 @@ button:disabled,
     padding: 22px 14px;
   }
 }
+
+/* =========================================================
+   PICSHARE — FINAL FIX: COMMENT PROFILE PICTURES
+   ========================================================= */
+
+.comment-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  width: 100%;
+  min-width: 0;
+}
+
+.comment-item > .comment-avatar {
+  display: block !important;
+  flex: 0 0 36px !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  overflow: hidden !important;
+}
+
+.comment-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.comment-content strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.comment-content p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.comment-item .delete-comment {
+  flex: 0 0 auto;
+  font-size: 10px;
+}
+
+@media (max-width: 600px) {
+  .comment-item > .comment-avatar {
+    flex-basis: 32px !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+  }
+}
