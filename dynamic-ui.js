@@ -583,48 +583,79 @@ if (!moments || !appArea) {
     }
   }
 
-  // REACT TO STORY
+  // REACT TO STORY + NOTIFY STORY OWNER
 
-  async function reactToStory() {
-    const story = viewerStories[selectedStory];
-    const button = document.getElementById("storyReact");
+async function reactToStory() {
+  const story = viewerStories[selectedStory];
+  const button = document.getElementById("storyReact");
 
-    if (!currentUser || !story) return;
+  if (!currentUser || !story) return;
 
-    if (currentUser.uid === story.uid) {
-      showStatus("You cannot react to your own story.");
+  if (currentUser.uid === story.uid) {
+    showStatus("You cannot react to your own story.");
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = "Saving...";
+
+  try {
+    const reactionRef = doc(
+      db,
+      "stories",
+      story.id,
+      "reactions",
+      currentUser.uid
+    );
+
+    // Check whether this user has already reacted
+    const existingReaction = await getDoc(reactionRef);
+
+    if (existingReaction.exists()) {
+      button.textContent = "❤️ Reacted";
+      showStatus("You have already reacted to this story.");
       return;
     }
 
-    button.disabled = true;
-    button.textContent = "Saving...";
+    const actorName =
+      currentUser.displayName || "PicShare member";
 
-    try {
-      const reactionRef = doc(
-        db, "stories", story.id, "reactions", currentUser.uid
-      );
+    // Save the story reaction
+    await setDoc(reactionRef, {
+      uid: currentUser.uid,
+      name: actorName,
+      emoji: "❤️",
+      createdAt: serverTimestamp()
+    });
 
-      await setDoc(reactionRef, {
-        uid: currentUser.uid,
-        name: currentUser.displayName || "PicShare member",
-        emoji: "❤️",
+    // Notify the owner of the story
+    await addDoc(
+      collection(db, "users", story.uid, "notifications"),
+      {
+        actorUid: currentUser.uid,
+        actorName: actorName,
+        storyId: story.id,
+        type: "story_like",
+        commentText: "",
+        read: false,
         createdAt: serverTimestamp()
-      });
+      }
+    );
 
-      button.textContent = "❤️ Reacted";
-      showStatus("Your reaction was sent!");
+    button.textContent = "❤️ Reacted";
+    showStatus("Your reaction was sent!");
 
-      await updateViewCount(story);
+    await updateViewCount(story);
 
-    } catch (error) {
-      console.error("Reaction failed:", error);
-      button.textContent = "❤️ React";
-      showStatus("Could not react: " + error.message);
+  } catch (error) {
+    console.error("Story reaction failed:", error);
+    button.textContent = "❤️ React";
+    showStatus("Could not react: " + error.message);
 
-    } finally {
-      button.disabled = false;
-    }
+  } finally {
+    button.disabled = false;
   }
+}
 
   // OPEN STORY
 
