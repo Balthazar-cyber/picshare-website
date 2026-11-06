@@ -196,10 +196,12 @@ function renderNotifications(items) {
     const actor = safe(item.actorName || "PicShare member");
 
     const verb = item.type === "like"
-      ? "liked your post."
-      : item.type === "comment"
-      ? "commented on your post."
-      : "interacted with your post.";
+  ? "liked your post."
+  : item.type === "comment"
+  ? "commented on your post."
+  : item.type === "story_reaction"
+  ? "liked your story. ❤️"
+  : "interacted with your post.";
 
     return `<div class="notification-item ${item.read ? "" : "unread"}">
       <strong>${actor}</strong> ${verb}
