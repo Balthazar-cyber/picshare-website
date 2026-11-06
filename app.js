@@ -1,35 +1,19 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-
 import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  onAuthStateChanged,
-  signOut,
-  updateProfile
+  getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  onAuthStateChanged, signOut, updateProfile
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-
 import {
-  getFirestore,
-  collection,
-  addDoc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  deleteDoc,
-  updateDoc
+  getFirestore, collection, addDoc, query, orderBy, onSnapshot,
+  serverTimestamp, doc, setDoc, getDoc, getDocs, deleteDoc, updateDoc
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
-
 import { firebaseConfig } from "./firebase-config.js";
 
+/* PICSHARE APP */
+
 const SUPABASE_URL = "https://rcfyzegwkopysdmrqiei.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY =
-  "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
+const ADMIN_UID = "VXDMuU17gifoBqTkbpC55Xre9242";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -37,21 +21,93 @@ const db = getFirestore(app);
 
 const $ = id => document.getElementById(id);
 
-const safe = value =>
-  String(value ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;"
-  }[c]));
+const safe = value => String(value ?? "").replace(/[&<>"']/g, c => ({
+  "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+}[c]));
 
-let stopFeed = null;
-let stopLikes = [];
-let stopComments = [];
-let stopNotifications = null;
+let stopFeed = null, stopLikes = [], stopComments = [];
+let stopNotifications = null, stopMembership = null;
 
-// PROFILE MENU
+let currentMembershipStatus = "active";
+let membershipReady = false;
+
+/* MEMBERSHIP MANAGEMENT */
+
+const isAdmin = user => !!user && user.uid === ADMIN_UID;
+
+const canInteract = () => !!auth.currentUser &&
+  (isAdmin(auth.currentUser) ||
+  (membershipReady && currentMembershipStatus === "active"));
+
+function requireActiveMembership(action) {
+  if (!auth.currentUser) {
+    alert("Please sign in first.");
+    return false;
+  }
+
+  if (!membershipReady) {
+    alert("Membership status is loading. Try again shortly.");
+    return false;
+  }
+
+  if (canInteract()) return true;
+
+  alert(currentMembershipStatus === "restricted"
+    ? `Your account is restricted. You can view posts but cannot ${action}.`
+    : `Your account cannot ${action} at this time.`);
+
+  return false;
+}
+
+function applyMembershipUI() {
+  ["saveProfileBtn", "uploadPhotoBtn", "publishBtn"].forEach(id => {
+    if ($(id)) $(id).disabled = !canInteract();
+  });
+
+  if ($("profileStatus") && currentMembershipStatus === "restricted") {
+    $("profileStatus").textContent =
+      "Restricted account: viewing is allowed, but publishing and interactions are disabled.";
+  }
+}
+
+async function readMembership(user) {
+  if (isAdmin(user)) return "active";
+
+  const snap = await getDoc(
+    doc(db, "membership_status", user.uid)
+  );
+
+  if (!snap.exists()) return "active";
+
+  const value = String(snap.data().status || "active").toLowerCase();
+
+  return ["active", "restricted", "suspended", "blocked"].includes(value)
+    ? value : "suspended";
+}
+
+/* LISTENER CLEANUP */
+
+function stopAllFeedListeners() {
+  stopLikes.forEach(fn => fn());
+  stopLikes = [];
+
+  stopComments.forEach(fn => fn());
+  stopComments = [];
+}
+
+function stopAllUserListeners() {
+  if (stopFeed) stopFeed();
+  if (stopNotifications) stopNotifications();
+  if (stopMembership) stopMembership();
+
+  stopFeed = null;
+  stopNotifications = null;
+  stopMembership = null;
+
+  stopAllFeedListeners();
+}
+
+/* PROFILE MENU */
 
 const profileMenuBtn = $("profileMenuBtn");
 const profileDropdown = $("profileDropdown");
@@ -62,39 +118,36 @@ function closeProfileMenu() {
   profileMenuBtn?.setAttribute("aria-expanded", "false");
 }
 
-profileMenuBtn?.addEventListener("click", event => {
-  event.stopPropagation();
+profileMenuBtn?.addEventListener("click", e => {
+  e.stopPropagation();
 
   if (!profileDropdown) return;
 
-  const opening = profileDropdown.hidden;
-  profileDropdown.hidden = !opening;
-  profileMenuBtn.setAttribute("aria-expanded", String(opening));
+  profileDropdown.hidden = !profileDropdown.hidden;
+
+  profileMenuBtn.setAttribute(
+    "aria-expanded",
+    String(!profileDropdown.hidden)
+  );
 });
 
-document.addEventListener("click", event => {
-  if (profileMenuWrap && !profileMenuWrap.contains(event.target)) {
+document.addEventListener("click", e => {
+  if (profileMenuWrap && !profileMenuWrap.contains(e.target)) {
     closeProfileMenu();
   }
 });
 
 $("myProfileLink")?.addEventListener("click", () => {
   closeProfileMenu();
-
-  $("profileCard")?.scrollIntoView({
-    behavior: "smooth"
-  });
+  $("profileCard")?.scrollIntoView({behavior:"smooth"});
 });
 
 $("editProfileLink")?.addEventListener("click", () => {
   closeProfileMenu();
-
-  $("editProfileCard")?.scrollIntoView({
-    behavior: "smooth"
-  });
+  $("editProfileCard")?.scrollIntoView({behavior:"smooth"});
 });
 
-// NOTIFICATIONS
+/* NOTIFICATIONS */
 
 const notificationWrap = $("notificationWrap");
 const notificationBtn = $("notificationBtn");
@@ -107,19 +160,16 @@ function closeNotificationPanel() {
   if (notificationPanel) notificationPanel.hidden = true;
 }
 
-notificationBtn?.addEventListener("click", event => {
-  event.stopPropagation();
+notificationBtn?.addEventListener("click", e => {
+  e.stopPropagation();
 
-  if (!notificationPanel) return;
-
-  notificationPanel.hidden = !notificationPanel.hidden;
+  if (notificationPanel) {
+    notificationPanel.hidden = !notificationPanel.hidden;
+  }
 });
 
-document.addEventListener("click", event => {
-  if (
-    notificationWrap &&
-    !notificationWrap.contains(event.target)
-  ) {
+document.addEventListener("click", e => {
+  if (notificationWrap && !notificationWrap.contains(e.target)) {
     closeNotificationPanel();
   }
 });
@@ -127,7 +177,7 @@ document.addEventListener("click", event => {
 function renderNotifications(items) {
   if (!notificationList) return;
 
-  const unread = items.filter(item => !item.read).length;
+  const unread = items.filter(x => !x.read).length;
 
   if (notificationCount) {
     notificationCount.textContent =
@@ -145,51 +195,32 @@ function renderNotifications(items) {
   notificationList.innerHTML = items.map(item => {
     const actor = safe(item.actorName || "PicShare member");
 
-    let message = "interacted with your post.";
+    const verb = item.type === "like"
+      ? "liked your post."
+      : item.type === "comment"
+      ? "commented on your post."
+      : "interacted with your post.";
 
-    if (item.type === "like") {
-      message = "liked your post.";
-    } else if (item.type === "comment") {
-      message = "commented on your post.";
-    }
-
-    const comment = item.commentText
-      ? `<p>${safe(item.commentText)}</p>`
-      : "";
-
-    return `
-      <div class="notification-item ${item.read ? "" : "unread"}">
-        <strong>${actor}</strong>
-        ${message}
-        ${comment}
-      </div>
-    `;
+    return `<div class="notification-item ${item.read ? "" : "unread"}">
+      <strong>${actor}</strong> ${verb}
+      ${item.commentText ? `<p>${safe(item.commentText)}</p>` : ""}
+    </div>`;
   }).join("");
 }
 
 function startNotifications(user) {
-  if (stopNotifications) {
-    stopNotifications();
-    stopNotifications = null;
-  }
-
-  const notificationsRef = query(
-    collection(db, "users", user.uid, "notifications"),
-    orderBy("createdAt", "desc")
-  );
+  if (stopNotifications) stopNotifications();
 
   stopNotifications = onSnapshot(
-    notificationsRef,
-    snapshot => {
-      const items = snapshot.docs.map(notificationDoc => ({
-        id: notificationDoc.id,
-        ...notificationDoc.data()
-      }));
-
-      renderNotifications(items);
-    },
-    error => {
-      console.error("Notification error:", error);
+    query(
+      collection(db, "users", user.uid, "notifications"),
+      orderBy("createdAt", "desc")
+    ),
+    snap => renderNotifications(
+      snap.docs.map(d => ({id:d.id, ...d.data()}))
+    ),
+    err => {
+      console.error("Notification error:", err);
 
       if (notificationList) {
         notificationList.textContent =
@@ -200,88 +231,77 @@ function startNotifications(user) {
 }
 
 async function sendNotification(
-  recipientUid,
-  actorUid,
-  actorName,
-  postId,
-  type,
-  commentText = ""
+  toUid, actorUid, actorName, postId, type, commentText = ""
 ) {
-  if (!recipientUid || recipientUid === actorUid) return;
+  if (!toUid || toUid === actorUid) return;
 
   try {
     await addDoc(
-      collection(db, "users", recipientUid, "notifications"),
+      collection(db, "users", toUid, "notifications"),
       {
         actorUid,
         actorName,
         postId,
         type,
         commentText,
-        read: false,
-        createdAt: serverTimestamp()
+        read:false,
+        createdAt:serverTimestamp()
       }
     );
-  } catch (error) {
-    console.error("Could not send notification:", error);
+  } catch (err) {
+    console.error("Could not send notification:", err);
   }
 }
 
 markAllReadBtn?.addEventListener("click", async () => {
   const user = auth.currentUser;
-
   if (!user) return;
 
   markAllReadBtn.disabled = true;
 
   try {
-    const snapshot = await getDocs(
+    const snap = await getDocs(
       collection(db, "users", user.uid, "notifications")
     );
 
-    const updates = snapshot.docs
-      .filter(item => !item.data().read)
-      .map(item =>
-        updateDoc(item.ref, { read: true })
-      );
+    await Promise.all(
+      snap.docs
+        .filter(d => !d.data().read)
+        .map(d => updateDoc(d.ref, {read:true}))
+    );
 
-    await Promise.all(updates);
-  } catch (error) {
-    console.error("Could not mark notifications as read:", error);
+  } catch (err) {
+    console.error("Could not mark notifications read:", err);
   } finally {
     markAllReadBtn.disabled = false;
   }
 });
 
-// MESSAGES
+/* AUTH FORM HELPERS */
 
 function showMessage(message, error = false) {
+  if (!$("authMessage")) return;
+
   $("authMessage").textContent = message;
   $("authMessage").style.color = error ? "#b42318" : "";
 }
 
 function getInputs() {
   return {
-    email: $("email").value.trim(),
-    password: $("password").value,
-    name: $("displayName").value.trim()
+    email: $("email")?.value.trim() || "",
+    password: $("password")?.value || "",
+    name: $("displayName")?.value.trim() || ""
   };
 }
 
-// CLEAN UP LISTENERS
-
-function stopAllListeners() {
-  stopLikes.forEach(stop => stop());
-  stopLikes = [];
-
-  stopComments.forEach(stop => stop());
-  stopComments = [];
-}
-
-// PHOTO UPLOAD HELPER
+/* SUPABASE IMAGE UPLOAD */
 
 async function uploadImage(user, file) {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+  if (!canInteract()) {
+    throw new Error("Your membership does not allow uploads.");
+  }
+
+  if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
     throw new Error("Choose a JPG, PNG or WEBP image.");
   }
 
@@ -290,26 +310,28 @@ async function uploadImage(user, file) {
   }
 
   const token = await user.getIdToken();
-  const form = new FormData();
 
+  const form = new FormData();
   form.append("file", file, file.name);
 
   const response = await fetch(
     `${SUPABASE_URL}/functions/v1/dynamic-function`,
     {
-      method: "POST",
-      headers: {
-        apikey: SUPABASE_PUBLISHABLE_KEY,
-        "x-firebase-token": token
+      method:"POST",
+      headers:{
+        apikey:SUPABASE_PUBLISHABLE_KEY,
+        "x-firebase-token":token
       },
-      body: form
+      body:form
     }
   );
 
   const result = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(result.error || `Upload failed (${response.status})`);
+    throw new Error(
+      result.error || `Upload failed (${response.status})`
+    );
   }
 
   if (!result.publicUrl) {
@@ -319,99 +341,116 @@ async function uploadImage(user, file) {
   return result.publicUrl;
 }
 
-// PROFILE DISPLAY
+/* PROFILE */
 
 async function loadProfile(user) {
-  const profileRef = doc(db, "users", user.uid);
-  const profileSnap = await getDoc(profileRef);
-  const profile = profileSnap.exists() ? profileSnap.data() : {};
+  const snap = await getDoc(doc(db, "users", user.uid));
+
+  const profile = snap.exists() ? snap.data() : {};
 
   const name = profile.name || user.displayName || "PicShare member";
   const photo = profile.photoURL || user.photoURL || "";
 
-  $("profileName").textContent = name;
-  $("profileNameInput").value = name;
-  $("profileInitial").textContent = name.charAt(0).toUpperCase();
+  if ($("profileName")) {
+    $("profileName").textContent = name;
+  }
+
+  if ($("profileNameInput")) {
+    $("profileNameInput").value = name;
+  }
+
+  if ($("profileInitial")) {
+    $("profileInitial").textContent = name.charAt(0).toUpperCase();
+  }
 
   let avatar = $("profileDisplayPhoto");
 
-  if (photo) {
+  const art = $("profileCard")?.querySelector(".profile-art");
+
+  if (photo && art) {
     if (!avatar) {
       avatar = document.createElement("img");
       avatar.id = "profileDisplayPhoto";
       avatar.className = "profile-photo";
       avatar.alt = "Profile photo";
-
-      $("profileCard")
-        .querySelector(".profile-art")
-        .appendChild(avatar);
+      art.appendChild(avatar);
     }
 
     avatar.src = photo;
     avatar.hidden = false;
-    $("profileInitial").hidden = true;
+
+    if ($("profileInitial")) {
+      $("profileInitial").hidden = true;
+    }
+
   } else {
-    if (avatar) avatar.remove();
-    $("profileInitial").hidden = false;
+    avatar?.remove();
+
+    if ($("profileInitial")) {
+      $("profileInitial").hidden = false;
+    }
   }
 }
 
-// SAVE PROFILE
+$("saveProfileBtn")?.addEventListener("click", async () => {
+  if (!requireActiveMembership("edit your profile")) return;
 
-$("saveProfileBtn").addEventListener("click", async () => {
   const user = auth.currentUser;
+  const name = $("profileNameInput")?.value.trim() || "";
+  const file = $("profilePhotoInput")?.files?.[0];
 
-  if (!user) {
-    $("profileStatus").textContent = "Please sign in first.";
-    return;
-  }
-
-  const name = $("profileNameInput").value.trim();
-  const file = $("profilePhotoInput").files?.[0];
+  if (!user) return;
 
   if (!name || name.length > 30) {
-    $("profileStatus").textContent =
-      "Enter a display name of 1–30 characters.";
+    if ($("profileStatus")) {
+      $("profileStatus").textContent =
+        "Enter a display name of 1–30 characters.";
+    }
     return;
   }
 
   const button = $("saveProfileBtn");
   button.disabled = true;
-  $("profileStatus").textContent = "Saving profile...";
 
   try {
-    let photoURL = user.photoURL || "";
-
-    if (file) {
-      photoURL = await uploadImage(user, file);
-    }
+    const photoURL = file
+      ? await uploadImage(user, file)
+      : (user.photoURL || "");
 
     await updateProfile(user, {
-      displayName: name,
+      displayName:name,
       photoURL
     });
 
-    await setDoc(doc(db, "users", user.uid), {
-      uid: user.uid,
-      name,
-      photoURL
-    }, { merge: true });
+    await setDoc(
+      doc(db, "users", user.uid),
+      {uid:user.uid, name, photoURL},
+      {merge:true}
+    );
 
-    $("profilePhotoInput").value = "";
-    $("profileStatus").textContent = "Profile saved successfully!";
+    if ($("profilePhotoInput")) {
+      $("profilePhotoInput").value = "";
+    }
+
+    if ($("profileStatus")) {
+      $("profileStatus").textContent = "Profile saved successfully!";
+    }
 
     await loadProfile(user);
-  } catch (error) {
-    $("profileStatus").textContent = error.message;
+
+  } catch (err) {
+    if ($("profileStatus")) {
+      $("profileStatus").textContent = err.message;
+    }
   } finally {
-    button.disabled = false;
+    button.disabled = !canInteract();
   }
 });
 
-// SIGN UP
+/* REGISTRATION AND SIGN-IN */
 
-$("signUpBtn").addEventListener("click", async () => {
-  const { email, password, name } = getInputs();
+$("signUpBtn")?.addEventListener("click", async () => {
+  const {email,password,name} = getInputs();
 
   if (!email || password.length < 6 || !name) {
     return showMessage(
@@ -422,109 +461,133 @@ $("signUpBtn").addEventListener("click", async () => {
 
   try {
     const credential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
+      auth, email, password
     );
 
     await updateProfile(credential.user, {
-      displayName: name
+      displayName:name
     });
 
-    await setDoc(doc(db, "users", credential.user.uid), {
-      uid: credential.user.uid,
-      name,
-      photoURL: "",
-      createdAt: serverTimestamp()
-    }, { merge: true });
+    await setDoc(
+      doc(db,"users",credential.user.uid),
+      {
+        uid:credential.user.uid,
+        name,
+        photoURL:"",
+        createdAt:serverTimestamp()
+      },
+      {merge:true}
+    );
 
     showMessage("Account created.");
-  } catch (error) {
-    showMessage(error.message, true);
+
+  } catch (err) {
+    showMessage(err.message,true);
   }
 });
 
-// SIGN IN
-
-$("signInBtn").addEventListener("click", async () => {
-  const { email, password } = getInputs();
+$("signInBtn")?.addEventListener("click", async () => {
+  const {email,password} = getInputs();
 
   if (!email || !password) {
-    return showMessage("Enter your email and password.", true);
+    return showMessage("Enter your email and password.",true);
   }
 
   try {
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithEmailAndPassword(auth,email,password);
     showMessage("");
-  } catch (error) {
-    showMessage(error.message, true);
+
+  } catch (err) {
+    showMessage(err.message,true);
   }
 });
 
-// SIGN OUT
-
-$("signOutBtn").addEventListener("click", async () => {
+$("signOutBtn")?.addEventListener("click", async () => {
   closeProfileMenu();
   closeNotificationPanel();
   await signOut(auth);
 });
 
-// PHOTO UPLOAD FOR POSTS
+/* CREATE PHOTO POSTS */
 
 $("uploadPhotoBtn")?.addEventListener("click", async () => {
+  if (!requireActiveMembership("upload photos")) return;
+
   const user = auth.currentUser;
-  const file = $("photoFile").files?.[0];
+  const file = $("photoFile")?.files?.[0];
 
   if (!user) return alert("Please sign in first.");
   if (!file) return alert("Choose a photo first.");
 
   const button = $("uploadPhotoBtn");
   button.disabled = true;
-  $("photoUploadStatus").textContent = "Uploading...";
+
+  if ($("photoUploadStatus")) {
+    $("photoUploadStatus").textContent = "Uploading...";
+  }
 
   try {
-    const imageUrl = await uploadImage(user, file);
+    const imageUrl = await uploadImage(user,file);
 
-    const profileSnap = await getDoc(doc(db, "users", user.uid));
-    const profile = profileSnap.exists() ? profileSnap.data() : {};
+    const profileSnap = await getDoc(
+      doc(db,"users",user.uid)
+    );
 
-    await addDoc(collection(db, "posts"), {
-      uid: user.uid,
-      name: profile.name || user.displayName || "PicShare member",
-      photoURL: profile.photoURL || user.photoURL || "",
-      caption: $("caption").value.trim(),
+    const profile = profileSnap.exists()
+      ? profileSnap.data()
+      : {};
+
+    await addDoc(collection(db,"posts"), {
+      uid:user.uid,
+      name:profile.name || user.displayName || "PicShare member",
+      photoURL:profile.photoURL || user.photoURL || "",
+      caption:$("caption")?.value.trim() || "",
       imageUrl,
-      createdAt: serverTimestamp()
+      createdAt:serverTimestamp()
     });
 
-    $("photoUploadStatus").textContent =
-      "Photo uploaded and shared to your feed!";
+    if ($("photoUploadStatus")) {
+      $("photoUploadStatus").textContent =
+        "Photo uploaded and shared to your feed!";
+    }
 
-    $("photoPreview").src = imageUrl;
-    $("photoPreview").hidden = false;
-    $("photoFile").value = "";
-    $("caption").value = "";
-    $("charCount").textContent = "0 / 220";
-  } catch (error) {
-    $("photoUploadStatus").textContent =
-      "Upload failed: " + error.message;
+    if ($("photoPreview")) {
+      $("photoPreview").src=imageUrl;
+      $("photoPreview").hidden=false;
+    }
+
+    if ($("photoFile")) $("photoFile").value="";
+    if ($("caption")) $("caption").value="";
+
+    if ($("charCount")) {
+      $("charCount").textContent="0 / 220";
+    }
+
+  } catch (err) {
+    if ($("photoUploadStatus")) {
+      $("photoUploadStatus").textContent =
+        "Upload failed: " + err.message;
+    }
+
   } finally {
-    button.disabled = false;
+    button.disabled = !canInteract();
   }
 });
 
-// CAPTION COUNTER
-
-$("caption").addEventListener("input", () => {
-  $("charCount").textContent =
-    `${$("caption").value.length} / 220`;
+$("caption")?.addEventListener("input", () => {
+  if ($("charCount")) {
+    $("charCount").textContent =
+      `${$("caption").value.length} / 220`;
+  }
 });
 
-// TEXT POSTS
+/* TEXT POSTS */
 
-$("publishBtn").addEventListener("click", async () => {
+$("publishBtn")?.addEventListener("click", async () => {
+  if (!requireActiveMembership("publish posts")) return;
+
   const user = auth.currentUser;
-  const caption = $("caption").value.trim();
+  const caption = $("caption")?.value.trim() || "";
 
   if (!user) return alert("Please sign in first.");
   if (!caption) return alert("Write a message first.");
@@ -533,69 +596,80 @@ $("publishBtn").addEventListener("click", async () => {
     return alert("Posts cannot exceed 220 characters.");
   }
 
-  const button = $("publishBtn");
-  button.disabled = true;
+  const button=$("publishBtn");
+  button.disabled=true;
 
   try {
-    const profileSnap = await getDoc(doc(db, "users", user.uid));
-    const profile = profileSnap.exists() ? profileSnap.data() : {};
+    const snap=await getDoc(
+      doc(db,"users",user.uid)
+    );
 
-    await addDoc(collection(db, "posts"), {
-      uid: user.uid,
-      name: profile.name || user.displayName || "PicShare member",
-      photoURL: profile.photoURL || user.photoURL || "",
+    const profile=snap.exists()?snap.data():{};
+
+    await addDoc(collection(db,"posts"), {
+      uid:user.uid,
+      name:profile.name || user.displayName || "PicShare member",
+      photoURL:profile.photoURL || user.photoURL || "",
       caption,
-      createdAt: serverTimestamp()
+      createdAt:serverTimestamp()
     });
 
-    $("caption").value = "";
-    $("charCount").textContent = "0 / 220";
-  } catch (error) {
-    alert("Could not publish: " + error.message);
+    $("caption").value="";
+
+    if ($("charCount")) {
+      $("charCount").textContent="0 / 220";
+    }
+
+  } catch(err) {
+    alert("Could not publish: "+err.message);
+
   } finally {
-    button.disabled = false;
+    button.disabled=!canInteract();
   }
 });
 
-// LIKE AND UNLIKE
+/* LIKES */
 
-async function toggleLike(postId, button) {
-  const user = auth.currentUser;
+async function toggleLike(postId,button) {
+  const user=auth.currentUser;
 
   if (!user) {
     return alert("Please sign in to like posts.");
   }
 
-  button.disabled = true;
+  if (!requireActiveMembership("like posts")) return;
+
+  button.disabled=true;
 
   try {
-    const likeRef = doc(db, "posts", postId, "likes", user.uid);
+    const ref=doc(
+      db,"posts",postId,"likes",user.uid
+    );
 
-    if (button.dataset.liked === "true") {
-      await deleteDoc(likeRef);
+    if (button.dataset.liked==="true") {
+      await deleteDoc(ref);
+
     } else {
-      await setDoc(likeRef, {
-        uid: user.uid,
-        createdAt: serverTimestamp()
+      await setDoc(ref,{
+        uid:user.uid,
+        createdAt:serverTimestamp()
       });
 
-      // SEND LIKE NOTIFICATION
-
-      const postSnap = await getDoc(doc(db, "posts", postId));
+      const postSnap=await getDoc(
+        doc(db,"posts",postId)
+      );
 
       if (postSnap.exists()) {
-        const post = postSnap.data();
-
-        const profileSnap = await getDoc(
-          doc(db, "users", user.uid)
+        const profileSnap=await getDoc(
+          doc(db,"users",user.uid)
         );
 
-        const profile = profileSnap.exists()
+        const profile=profileSnap.exists()
           ? profileSnap.data()
           : {};
 
         await sendNotification(
-          post.uid,
+          postSnap.data().uid,
           user.uid,
           profile.name || user.displayName || "PicShare member",
           postId,
@@ -603,52 +677,59 @@ async function toggleLike(postId, button) {
         );
       }
     }
-  } catch (error) {
-    alert("Could not update like: " + error.message);
+
+  } catch(err) {
+    alert("Could not update like: "+err.message);
+
   } finally {
-    button.disabled = false;
+    button.disabled=!canInteract();
   }
 }
 
-// ADD COMMENT
+/* COMMENTS */
 
-async function addComment(postId, input, button) {
-  const user = auth.currentUser;
-  const text = input.value.trim();
+async function addComment(postId,input,button) {
+  const user=auth.currentUser;
+  const text=input.value.trim();
 
-  if (!user) return alert("Please sign in to comment.");
+  if (!user) {
+    return alert("Please sign in to comment.");
+  }
+
+  if (!requireActiveMembership("comment")) return;
   if (!text) return alert("Write a comment first.");
 
-  if (text.length > 500) {
+  if (text.length>500) {
     return alert("Comments cannot exceed 500 characters.");
   }
 
-  button.disabled = true;
+  button.disabled=true;
 
   try {
-    const profileSnap = await getDoc(doc(db, "users", user.uid));
-    const profile = profileSnap.exists() ? profileSnap.data() : {};
+    const snap=await getDoc(
+      doc(db,"users",user.uid)
+    );
+
+    const profile=snap.exists()?snap.data():{};
 
     await addDoc(
-      collection(db, "posts", postId, "comments"),
+      collection(db,"posts",postId,"comments"),
       {
-        uid: user.uid,
-        name: profile.name || user.displayName || "PicShare member",
-        photoURL: profile.photoURL || user.photoURL || "",
+        uid:user.uid,
+        name:profile.name || user.displayName || "PicShare member",
+        photoURL:profile.photoURL || user.photoURL || "",
         text,
-        createdAt: serverTimestamp()
+        createdAt:serverTimestamp()
       }
     );
 
-    // SEND COMMENT NOTIFICATION
-
-    const postSnap = await getDoc(doc(db, "posts", postId));
+    const postSnap=await getDoc(
+      doc(db,"posts",postId)
+    );
 
     if (postSnap.exists()) {
-      const post = postSnap.data();
-
       await sendNotification(
-        post.uid,
+        postSnap.data().uid,
         user.uid,
         profile.name || user.displayName || "PicShare member",
         postId,
@@ -657,107 +738,125 @@ async function addComment(postId, input, button) {
       );
     }
 
-    input.value = "";
-  } catch (error) {
-    alert("Could not add comment: " + error.message);
+    input.value="";
+
+  } catch(err) {
+    alert("Could not add comment: "+err.message);
+
   } finally {
-    button.disabled = false;
+    button.disabled=!canInteract();
   }
 }
 
-// DELETE COMMENT
-
-async function deleteComment(postId, commentId) {
-  const user = auth.currentUser;
+async function deleteComment(postId,commentId) {
+  const user=auth.currentUser;
 
   if (!user) return;
+
+  if (!isAdmin(user) && !canInteract()) {
+    return alert("Your membership does not allow this action.");
+  }
+
   if (!confirm("Delete this comment?")) return;
 
   try {
     await deleteDoc(
-      doc(db, "posts", postId, "comments", commentId)
+      doc(db,"posts",postId,"comments",commentId)
     );
-  } catch (error) {
-    alert("Could not delete comment: " + error.message);
+
+  } catch(err) {
+    alert("Could not delete comment: "+err.message);
   }
 }
 
-// AVATAR HTML
+/* AVATAR MARKUP */
 
-function avatarHTML(name, photoURL, className) {
+function avatarHTML(name,photoURL,className) {
   if (photoURL) {
-    return `
-      <img
-        class="${className}"
-        src="${safe(photoURL)}"
-        alt="${safe(name)}"
-        loading="lazy"
-      >
-    `;
+    return `<img class="${className}" src="${safe(photoURL)}" alt="${safe(name)}" loading="lazy">`;
   }
 
-  return `
-    <span class="${className}">
-      ${safe((name || "P").slice(0, 1).toUpperCase())}
-    </span>
-  `;
+  return `<span class="${className}">${safe(
+    (name || "P").slice(0,1).toUpperCase()
+  )}</span>`;
 }
 
-// FEED — INCLUDES OLDER POSTS WITHOUT TIMESTAMPS
+/* FEED AND LIVE LIKE/COMMENT LISTENERS */
 
 function startFeed() {
   if (stopFeed) stopFeed();
 
-  stopAllListeners();
+  stopAllFeedListeners();
 
-  // Do not use orderBy here. It excludes documents without createdAt.
-  const q = collection(db, "posts");
+  stopFeed=onSnapshot(
+    collection(db,"posts"),
+    snapshot=>{
 
-  stopFeed = onSnapshot(
-    q,
+      stopAllFeedListeners();
 
-    snapshot => {
-      stopAllListeners();
+      const posts=[...snapshot.docs].sort((a,b)=>
+        (b.data().createdAt?.toMillis?.()||0)-
+        (a.data().createdAt?.toMillis?.()||0)
+      );
 
-      const posts = [...snapshot.docs].sort((a, b) => {
-        const timeA = a.data().createdAt?.toMillis?.() || 0;
-        const timeB = b.data().createdAt?.toMillis?.() || 0;
-        return timeB - timeA;
-      });
-
-      $("postCount").textContent =
-        `${posts.length} ${posts.length === 1 ? "post" : "posts"}`;
+      if ($("postCount")) {
+        $("postCount").textContent=
+          `${posts.length} ${posts.length===1?"post":"posts"}`;
+      }
 
       if (!posts.length) {
-        $("feed").innerHTML =
-          '<div class="card empty"><b>Your feed is waiting.</b> Be the first to share a message.</div>';
+        if ($("feed")) {
+          $("feed").innerHTML=
+            '<div class="card empty"><b>Your feed is waiting.</b> Be the first to share a message.</div>';
+        }
         return;
       }
 
-      $("feed").innerHTML = posts.map(postDoc => {
-        const p = postDoc.data();
-        const postId = postDoc.id;
+      const interactive=canInteract();
 
-        const date = p.createdAt?.toDate
-          ? p.createdAt.toDate().toLocaleString()
-          : "Earlier post";
+      if ($("feed")) {
+        $("feed").innerHTML=posts.map(postDoc=>{
+          const p=postDoc.data();
+          const id=postDoc.id;
 
-        const photo = p.imageUrl
-          ? `<img class="post-image" src="${safe(p.imageUrl)}" alt="Photo shared by ${safe(p.name || "PicShare member")}" loading="lazy">`
-          : "";
+          const date=p.createdAt?.toDate
+            ? p.createdAt.toDate().toLocaleString()
+            : "Earlier post";
 
-        const caption = p.caption
-          ? `<div class="post-caption">${safe(p.caption)}</div>`
-          : "";
+          const photo=p.imageUrl
+            ? `<img class="post-image" src="${safe(p.imageUrl)}" alt="Photo shared by ${safe(p.name||"PicShare member")}" loading="lazy">`
+            : "";
 
-        return `
-          <article class="card post">
+          const caption=p.caption
+            ? `<div class="post-caption">${safe(p.caption)}</div>`
+            : "";
+
+          const actions=interactive
+            ? `<div class="post-actions">
+                <button type="button" class="like-button"
+                  data-post-id="${safe(id)}" data-liked="false">
+                  🤍 Like <span class="like-count">0</span>
+                </button>
+              </div>`
+            : '<p class="muted">Read-only access: interactions are disabled.</p>';
+
+          const form=interactive
+            ? `<form class="comment-form" data-comment-form="${safe(id)}">
+                <input type="text" maxlength="500"
+                  placeholder="Write a comment..."
+                  aria-label="Write a comment" required>
+                <button type="submit">Send</button>
+              </form>`
+            : "";
+
+          return `<article class="card post">
 
             <div class="post-head">
-              ${avatarHTML(p.name, p.photoURL, "mini-avatar")}
+              ${avatarHTML(p.name,p.photoURL,"mini-avatar")}
+
               <div>
                 <div class="post-author">
-                  ${safe(p.name || "PicShare member")}
+                  ${safe(p.name||"PicShare member")}
                 </div>
 
                 <div class="post-date">
@@ -768,60 +867,31 @@ function startFeed() {
 
             ${photo}
             ${caption}
-
-            <div class="post-actions">
-              <button
-                type="button"
-                class="like-button"
-                data-post-id="${safe(postId)}"
-                data-liked="false"
-              >
-                🤍 Like <span class="like-count">0</span>
-              </button>
-            </div>
+            ${actions}
 
             <div class="comments-section">
               <div class="comments-title">💬 Comments</div>
 
-              <div
-                class="comments-list"
-                data-comments-post="${safe(postId)}"
-              >
+              <div class="comments-list"
+                data-comments-post="${safe(id)}">
                 <span class="muted">Loading comments...</span>
               </div>
 
-              <form
-                class="comment-form"
-                data-comment-form="${safe(postId)}"
-              >
-                <input
-                  type="text"
-                  maxlength="500"
-                  placeholder="Write a comment..."
-                  aria-label="Write a comment"
-                  required
-                >
-
-                <button type="submit">Send</button>
-              </form>
+              ${form}
             </div>
 
-          </article>
-        `;
-      }).join("");
+          </article>`;
+        }).join("");
+      }
 
-      // CONNECT LIKE BUTTONS
+      document.querySelectorAll(".like-button").forEach(button=>
+        button.addEventListener("click",()=>
+          toggleLike(button.dataset.postId,button)
+        )
+      );
 
-      document.querySelectorAll(".like-button").forEach(button => {
-        button.addEventListener("click", () => {
-          toggleLike(button.dataset.postId, button);
-        });
-      });
-
-      // CONNECT COMMENT FORMS
-
-      document.querySelectorAll(".comment-form").forEach(form => {
-        form.addEventListener("submit", event => {
+      document.querySelectorAll(".comment-form").forEach(form=>
+        form.addEventListener("submit",event=>{
           event.preventDefault();
 
           addComment(
@@ -829,213 +899,287 @@ function startFeed() {
             form.querySelector("input"),
             form.querySelector("button")
           );
-        });
-      });
+        })
+      );
 
-      // LIVE LIKE COUNTS
+      /* LIVE LIKE COUNTS */
 
-      posts.forEach(postDoc => {
-        const postId = postDoc.id;
+      posts.forEach(postDoc=>{
+        const id=postDoc.id;
 
-        const likesRef = collection(
-          db,
-          "posts",
-          postId,
-          "likes"
-        );
+        const stop=onSnapshot(
+          collection(db,"posts",id,"likes"),
+          likesSnap=>{
 
-        const stop = onSnapshot(
-          likesRef,
-
-          likesSnapshot => {
-            const button = [...document.querySelectorAll(".like-button")]
-              .find(item => item.dataset.postId === postId);
+            const button=[
+              ...document.querySelectorAll(".like-button")
+            ].find(b=>b.dataset.postId===id);
 
             if (!button) return;
 
-            const user = auth.currentUser;
-
-            const liked = user
-              ? likesSnapshot.docs.some(like => like.id === user.uid)
+            const liked=auth.currentUser
+              ? likesSnap.docs.some(d=>d.id===auth.currentUser.uid)
               : false;
 
-            button.dataset.liked = String(liked);
+            button.dataset.liked=String(liked);
 
-            button.innerHTML =
-              `${liked ? "❤️ Unlike" : "🤍 Like"} <span class="like-count">${likesSnapshot.size}</span>`;
+            button.innerHTML=
+              `${liked?"❤️ Unlike":"🤍 Like"}
+              <span class="like-count">${likesSnap.size}</span>`;
+
           },
-
-          error => console.error("Likes could not load:", error)
+          err=>console.error("Likes could not load:",err)
         );
 
         stopLikes.push(stop);
       });
 
-      // LIVE COMMENTS
+      /* LIVE COMMENTS */
 
-      posts.forEach(postDoc => {
-        const postId = postDoc.id;
+      posts.forEach(postDoc=>{
+        const id=postDoc.id;
 
-        const commentsRef = query(
-          collection(db, "posts", postId, "comments"),
-          orderBy("createdAt", "asc")
-        );
+        const stop=onSnapshot(
+          query(
+            collection(db,"posts",id,"comments"),
+            orderBy("createdAt","asc")
+          ),
 
-        const stop = onSnapshot(
-          commentsRef,
+          commentsSnap=>{
 
-          commentsSnapshot => {
-            const container = document.querySelector(
-              `[data-comments-post="${postId}"]`
+            const box=document.querySelector(
+              `[data-comments-post="${id}"]`
             );
 
-            if (!container) return;
+            if (!box) return;
 
-            if (commentsSnapshot.empty) {
-              container.innerHTML =
+            if (commentsSnap.empty) {
+              box.innerHTML=
                 '<p class="muted">No comments yet. Be the first!</p>';
               return;
             }
 
-            container.innerHTML = commentsSnapshot.docs.map(commentDoc => {
-              const c = commentDoc.data();
-              const commentId = commentDoc.id;
+            box.innerHTML=commentsSnap.docs.map(commentDoc=>{
+              const c=commentDoc.data();
+              const cid=commentDoc.id;
 
-              const canDelete =
-                auth.currentUser &&
+              const mayDelete=auth.currentUser &&
                 (
-                  auth.currentUser.uid === c.uid ||
-                  auth.currentUser.uid === "VXDMuU17gifoBqTkbpC55Xre9242"
+                  auth.currentUser.uid===c.uid ||
+                  isAdmin(auth.currentUser)
                 );
 
-              return `
-                <div class="comment-item">
-                  ${avatarHTML(c.name, c.photoURL, "comment-avatar")}
+              return `<div class="comment-item">
 
-                  <div class="comment-content">
-                    <strong>${safe(c.name || "PicShare member")}</strong>
-                    <p>${safe(c.text)}</p>
-                  </div>
+                ${avatarHTML(c.name,c.photoURL,"comment-avatar")}
 
-                  ${canDelete ? `
-                    <button
-                      class="delete-comment"
-                      type="button"
-                      data-comment-id="${safe(commentId)}"
-                      data-post-id="${safe(postId)}"
-                    >Delete</button>
-                  ` : ""}
-
+                <div class="comment-content">
+                  <strong>${safe(c.name||"PicShare member")}</strong>
+                  <p>${safe(c.text)}</p>
                 </div>
-              `;
+
+                ${mayDelete
+                  ? `<button class="delete-comment"
+                      type="button"
+                      data-comment-id="${safe(cid)}"
+                      data-post-id="${safe(id)}">
+                      Delete
+                    </button>`
+                  : ""}
+
+              </div>`;
             }).join("");
 
-            container.querySelectorAll(".delete-comment").forEach(button => {
-              button.addEventListener("click", () => {
+            box.querySelectorAll(".delete-comment").forEach(button=>
+              button.addEventListener("click",()=>
                 deleteComment(
                   button.dataset.postId,
                   button.dataset.commentId
-                );
-              });
-            });
+                )
+              )
+            );
           },
 
-          error => {
-            console.error("Comments could not load:", error);
+          err=>{
+            console.error("Comments could not load:",err);
 
-            const container = document.querySelector(
-              `[data-comments-post="${postId}"]`
+            const box=document.querySelector(
+              `[data-comments-post="${id}"]`
             );
 
-            if (container) {
-              container.textContent = "Could not load comments.";
+            if (box) {
+              box.textContent="Could not load comments.";
             }
           }
         );
 
         stopComments.push(stop);
       });
+
     },
 
-    error => {
-      console.error("Feed error:", error);
+    err=>{
+      console.error("Feed error:",err);
 
-      $("feed").textContent =
-        "Could not load posts: " + error.message;
+      if ($("feed")) {
+        $("feed").textContent=
+          "Could not load posts: "+err.message;
+      }
     }
   );
 }
 
-// AUTHENTICATION STATE
+/* AUTHENTICATION AND LIVE MEMBERSHIP STATUS */
 
-onAuthStateChanged(auth, async user => {
-  $("authCard").hidden = !!user;
-  $("appArea").hidden = !user;
-  $("signOutBtn").hidden = !user;
+onAuthStateChanged(auth,async user=>{
 
-  if (profileMenuWrap) {
-    profileMenuWrap.hidden = !user;
-  }
+  stopAllUserListeners();
 
-  if (notificationWrap) {
-    notificationWrap.hidden = !user;
-  }
+  membershipReady=false;
+  currentMembershipStatus="active";
+
+  if ($("authCard")) $("authCard").hidden=!!user;
+  if ($("appArea")) $("appArea").hidden=!user;
+  if ($("signOutBtn")) $("signOutBtn").hidden=!user;
+
+  if (profileMenuWrap) profileMenuWrap.hidden=!user;
+  if (notificationWrap) notificationWrap.hidden=!user;
 
   closeProfileMenu();
   closeNotificationPanel();
 
-  if (user) {
-    startFeed();
-    startNotifications(user);
+  if (!user) {
 
-    try {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-      const profile = userSnap.exists() ? userSnap.data() : {};
-
-      await setDoc(userRef, {
-        uid: user.uid,
-        name: profile.name || user.displayName || "PicShare member",
-        photoURL: profile.photoURL || user.photoURL || ""
-      }, { merge: true });
-
-      await loadProfile(user);
-    } catch (error) {
-      console.error("Profile loading error:", error);
-
-      $("profileStatus").textContent =
-        "Profile could not load: " + error.message;
-    }
-  } else {
-    $("profileName").textContent = "Not signed in";
-    $("profileNameInput").value = "";
-
-    const oldAvatar = $("profileDisplayPhoto");
-    if (oldAvatar) oldAvatar.remove();
-
-    $("profileInitial").hidden = false;
-    $("profileInitial").textContent = "P";
-
-    if (stopFeed) {
-      stopFeed();
-      stopFeed = null;
+    if ($("profileName")) {
+      $("profileName").textContent="Not signed in";
     }
 
-    if (stopNotifications) {
-      stopNotifications();
-      stopNotifications = null;
+    if ($("profileNameInput")) {
+      $("profileNameInput").value="";
     }
 
-    stopAllListeners();
+    $("profileDisplayPhoto")?.remove();
+
+    if ($("profileInitial")) {
+      $("profileInitial").hidden=false;
+      $("profileInitial").textContent="P";
+    }
 
     if (notificationCount) {
-      notificationCount.textContent = "0";
-      notificationCount.hidden = true;
+      notificationCount.textContent="0";
+      notificationCount.hidden=true;
     }
 
     if (notificationList) {
-      notificationList.innerHTML =
+      notificationList.innerHTML=
         '<p class="muted">Sign in to see notifications.</p>';
+    }
+
+    return;
+  }
+
+  try {
+
+    const status=await readMembership(user);
+
+    currentMembershipStatus=status;
+    membershipReady=true;
+
+    if (!isAdmin(user) &&
+        ["blocked","suspended"].includes(status)) {
+
+      alert(status==="blocked"
+        ? "This PicShare account has been blocked. Contact the administrator."
+        : "This PicShare account is suspended. Contact the administrator."
+      );
+
+      await signOut(auth);
+      return;
+    }
+
+    applyMembershipUI();
+
+    /* WATCH FOR ADMIN MEMBERSHIP CHANGES */
+
+    if (!isAdmin(user)) {
+
+      stopMembership=onSnapshot(
+        doc(db,"membership_status",user.uid),
+
+        async snap=>{
+
+          const raw=snap.exists()
+            ? String(snap.data().status||"active").toLowerCase()
+            : "active";
+
+          const next=[
+            "active",
+            "restricted",
+            "suspended",
+            "blocked"
+          ].includes(raw) ? raw : "suspended";
+
+          if (next===currentMembershipStatus) return;
+
+          currentMembershipStatus=next;
+          membershipReady=true;
+
+          if (["blocked","suspended"].includes(next)) {
+
+            alert(next==="blocked"
+              ? "Your account has been blocked."
+              : "Your account has been suspended."
+            );
+
+            await signOut(auth);
+            return;
+          }
+
+          applyMembershipUI();
+          startFeed();
+
+        },
+
+        err=>console.error(
+          "Membership listener error:",err
+        )
+      );
+    }
+
+    startFeed();
+    startNotifications(user);
+
+    const userRef=doc(db,"users",user.uid);
+    const userSnap=await getDoc(userRef);
+
+    const profile=userSnap.exists()
+      ? userSnap.data()
+      : {};
+
+    if (canInteract()) {
+
+      await setDoc(userRef,{
+        uid:user.uid,
+        name:profile.name||
+          user.displayName||
+          "PicShare member",
+        photoURL:profile.photoURL||
+          user.photoURL||
+          ""
+      },{merge:true});
+
+    }
+
+    await loadProfile(user);
+    applyMembershipUI();
+
+  } catch(err) {
+
+    console.error("Account setup error:",err);
+
+    if ($("profileStatus")) {
+      $("profileStatus").textContent=
+        "Account could not be loaded: "+err.message;
     }
   }
 });
