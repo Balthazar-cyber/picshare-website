@@ -628,42 +628,18 @@ async function reactToStory() {
       createdAt: serverTimestamp()
     });
 
-    // Notify the owner of the story
+    // Notify the story owner
 await addDoc(
   collection(db, "users", story.uid, "notifications"),
   {
     actorUid: currentUser.uid,
-    actorName: currentUser.displayName || "PicShare member",
+    actorName: actorName,
     type: "story_reaction",
     storyId: story.id,
     read: false,
     createdAt: serverTimestamp()
   }
 );
-
-    // Notify the owner of the story
-    await addDoc(
-      collection(db, "users", story.uid, "notifications"),
-      {
-        actorUid: currentUser.uid,
-        actorName: actorName,
-        storyId: story.id,
-        type: "story_like",
-        commentText: "",
-        read: false,
-        createdAt: serverTimestamp()
-      }
-    );
-
-    button.textContent = "❤️ Reacted";
-    showStatus("Your reaction was sent!");
-
-    await updateViewCount(story);
-
-  } catch (error) {
-    console.error("Story reaction failed:", error);
-    button.textContent = "❤️ React";
-    showStatus("Could not react: " + error.message);
 
   } finally {
     button.disabled = false;
