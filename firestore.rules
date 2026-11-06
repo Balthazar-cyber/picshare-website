@@ -78,13 +78,25 @@ service cloud.firestore {
           && canView();
 
         allow create: if canInteract()
-          && request.resource.data.actorUid == request.auth.uid
-          && request.auth.uid != userId
-          && request.resource.data.type in ["like", "comment"]
-          && request.resource.data.postId is string
-          && get(
-            /databases/$(database)/documents/posts/$(request.resource.data.postId)
-          ).data.uid == userId;
+  && request.resource.data.actorUid == request.auth.uid
+  && request.auth.uid != userId
+  && (
+    (
+      request.resource.data.type in ["like", "comment"]
+      && request.resource.data.postId is string
+      && get(
+        /databases/$(database)/documents/posts/$(request.resource.data.postId)
+      ).data.uid == userId
+    )
+    ||
+    (
+      request.resource.data.type == "story_reaction"
+      && request.resource.data.storyId is string
+      && get(
+        /databases/$(database)/documents/stories/$(request.resource.data.storyId)
+      ).data.uid == userId
+    )
+  );
 
         allow update: if signedIn()
           && request.auth.uid == userId
@@ -185,12 +197,13 @@ service cloud.firestore {
           && request.resource.data.emoji is string;
 
         allow read: if canView()
-          && (
-            get(
-              /databases/$(database)/documents/stories/$(storyId)
-            ).data.uid == request.auth.uid
-            || isAdmin()
-          );
+  && (
+    request.auth.uid == userId
+    || get(
+      /databases/$(database)/documents/stories/$(storyId)
+    ).data.uid == request.auth.uid
+    || isAdmin()
+  );
 
         allow delete: if false;
       }
