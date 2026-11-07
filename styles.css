@@ -2084,6 +2084,251 @@ button:disabled,
   overflow-wrap: anywhere;
 }
 
+   /* ==========================================
+   PICSHARE STAGE 2 — MOBILE SOCIAL FEED
+========================================== */
+
+@media (max-width: 600px) {
+
+  body {
+    background: #08090d !important;
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    min-height: 55px;
+    padding: 7px 13px;
+  }
+
+  .tagline {
+    display: none;
+  }
+
+  #appArea {
+    padding-bottom: 85px;
+  }
+
+  .layout {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .main-column {
+    display: block;
+    width: 100%;
+  }
+
+  /* Hide secondary sections on mobile feed */
+
+  .welcome-strip,
+  #momentsSection,
+  #composerSection,
+  #exploreSection,
+  #feedSection,
+  .side-column {
+    display: none !important;
+  }
+
+  #feed {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  /* Full-screen photo post */
+
+  #feed .video-style-post {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: calc(100svh - 140px);
+    min-height: 480px;
+    max-height: 780px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: #090909;
+    color: #fff;
+    box-shadow: none;
+  }
+
+  /* Blurred background */
+
+  .video-style-post .post-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    background: #111;
+  }
+
+  .video-style-post .post-backdrop {
+    filter: blur(32px) brightness(.48);
+    opacity: .95;
+  }
+
+  /* Clear foreground photo */
+
+  .video-style-post .post-media .post-image {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+  }
+
+  /* Author information */
+
+  .video-style-post .post-head {
+    position: absolute;
+    top: 14px;
+    left: 12px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    padding: 9px 12px;
+    border-radius: 30px;
+    background: rgba(0,0,0,.48);
+    color: white;
+    backdrop-filter: blur(10px);
+  }
+
+  .video-style-post .post-author,
+  .video-style-post .post-date {
+    color: #fff;
+  }
+
+  /* Caption */
+
+  .video-style-post .post-caption {
+    position: absolute;
+    z-index: 5;
+    right: 75px;
+    bottom: 18px;
+    left: 12px;
+    padding: 12px;
+    color: white;
+    font-size: 14px;
+    line-height: 1.6;
+    background: linear-gradient(
+      transparent,
+      rgba(0,0,0,.65)
+    );
+  }
+
+  /* Like action */
+
+  .video-style-post .post-actions {
+    position: absolute;
+    z-index: 6;
+    right: 12px;
+    bottom: 70px;
+    margin: 0;
+  }
+
+  .video-style-post .like-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 55px;
+    min-height: 58px;
+    padding: 8px;
+    border: 0;
+    border-radius: 15px;
+    background: rgba(0,0,0,.55);
+    color: white;
+    font-size: 12px;
+  }
+
+  .video-style-post .like-count {
+    font-size: 11px;
+  }
+
+  /* Comments */
+
+  .video-style-post .comments-section {
+    position: absolute;
+    z-index: 8;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-height: 42%;
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 17px 17px 0 0;
+    background: #fff;
+    color: #172638;
+  }
+
+  .video-style-post .comments-title {
+    color: #172638;
+  }
+
+  .video-style-post .comments-list {
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  /* Text-only posts */
+
+  #feed .text-style-post {
+    margin: 12px;
+    border-radius: 17px;
+  }
+
+  /* Bottom navigation */
+
+  #dynamicNav:not([hidden]) {
+    position: fixed;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    z-index: 500;
+    display: flex;
+    justify-content: space-around;
+    padding: 9px 4px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 18px;
+    background: rgba(15,20,29,.97);
+    box-shadow: 0 8px 30px rgba(0,0,0,.4);
+    backdrop-filter: blur(18px);
+  }
+
+  #dynamicNav button {
+    color: #d5dce4;
+  }
+
+  #dynamicNav button.active {
+    color: #42ddc4;
+    background: rgba(32,184,164,.16);
+  }
+
+  #dynamicCreateBtn:not([hidden]) {
+    position: fixed;
+    right: 18px;
+    bottom: 83px;
+    z-index: 501;
+  }
+
+  /* Keep notification panel working */
+
+  #notificationPanel {
+    z-index: 9999 !important;
+  }
+}
+
 .comment-item .delete-comment {
   flex: 0 0 auto;
   font-size: 10px;
