@@ -870,38 +870,45 @@ function startFeed() {
               </form>`
             : "";
 
-          return `<article class="card post">
+          return `<article class="card post ${p.imageUrl ? "video-style-post" : "text-style-post"}">
 
-            <div class="post-head">
-              ${avatarHTML(p.name,p.photoURL,"mini-avatar")}
+  <div class="post-head">
+    ${avatarHTML(p.name,p.photoURL,"mini-avatar")}
+    <div>
+      <div class="post-author">
+        ${safe(p.name || "PicShare member")}
+      </div>
+      <div class="post-date">
+        ${safe(date)}
+      </div>
+    </div>
+  </div>
 
-              <div>
-                <div class="post-author">
-                  ${safe(p.name||"PicShare member")}
-                </div>
+  ${photo}
 
-                <div class="post-date">
-                  ${safe(date)}
-                </div>
-              </div>
-            </div>
+  ${caption}
 
-            ${photo}
-            ${caption}
-            ${actions}
+  <div class="post-actions">
+    ${interactive
+      ? `<button type="button" class="like-button"
+          data-post-id="${safe(id)}" data-liked="false">
+          🤍 Like <span class="like-count">0</span>
+        </button>`
+      : '<span class="muted">Read-only</span>'}
+  </div>
 
-            <div class="comments-section">
-              <div class="comments-title">💬 Comments</div>
+  <div class="comments-section">
+    <div class="comments-title">💬 Comments</div>
 
-              <div class="comments-list"
-                data-comments-post="${safe(id)}">
-                <span class="muted">Loading comments...</span>
-              </div>
+    <div class="comments-list"
+      data-comments-post="${safe(id)}">
+      <span class="muted">Loading comments...</span>
+    </div>
 
-              ${form}
-            </div>
+    ${form}
+  </div>
 
-          </article>`;
+</article>`;
         }).join("");
       }
 
