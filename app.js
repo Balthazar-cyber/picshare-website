@@ -828,7 +828,6 @@ function startFeed() {
           const photo = p.imageUrl
   ? `
     <div class="post-media">
-
       <img
         class="post-backdrop"
         src="${safe(p.imageUrl)}"
@@ -836,14 +835,12 @@ function startFeed() {
         aria-hidden="true"
         loading="lazy"
       >
-
       <img
         class="post-image"
         src="${safe(p.imageUrl)}"
         alt="Photo shared by ${safe(p.name || "PicShare member")}"
         loading="lazy"
       >
-
     </div>
   `
   : "";
@@ -871,7 +868,6 @@ function startFeed() {
             : "";
 
           return `<article class="card post ${p.imageUrl ? "video-style-post" : "text-style-post"}">
-
   <div class="post-head">
     ${avatarHTML(p.name,p.photoURL,"mini-avatar")}
     <div>
