@@ -825,9 +825,28 @@ function startFeed() {
             ? p.createdAt.toDate().toLocaleString()
             : "Earlier post";
 
-          const photo=p.imageUrl
-            ? `<img class="post-image" src="${safe(p.imageUrl)}" alt="Photo shared by ${safe(p.name||"PicShare member")}" loading="lazy">`
-            : "";
+          const photo = p.imageUrl
+  ? `
+    <div class="post-media">
+
+      <img
+        class="post-backdrop"
+        src="${safe(p.imageUrl)}"
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+      >
+
+      <img
+        class="post-image"
+        src="${safe(p.imageUrl)}"
+        alt="Photo shared by ${safe(p.name || "PicShare member")}"
+        loading="lazy"
+      >
+
+    </div>
+  `
+  : "";
 
           const caption=p.caption
             ? `<div class="post-caption">${safe(p.caption)}</div>`
