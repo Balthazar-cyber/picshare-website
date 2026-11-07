@@ -2252,3 +2252,210 @@ max-width: calc(100vw - 20px) !important;
     max-height: 75vh;
   }
 }
+
+/* =========================================
+   PICSHARE — TIKTOK INSPIRED MOBILE FEED
+========================================= */
+
+@media (max-width: 600px) {
+
+  body {
+    background: #080b10;
+  }
+
+  .topbar {
+    min-height: 58px;
+    padding: 8px 14px;
+  }
+
+  .tagline {
+    display: none;
+  }
+
+  #appArea {
+    padding-bottom: 85px;
+  }
+
+  .layout {
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+
+  .main-column {
+    gap: 0;
+  }
+
+  .welcome-strip,
+  #momentsSection,
+  #composerSection,
+  #exploreSection,
+  #feedSection,
+  .side-column {
+    display: none !important;
+  }
+
+  #feed {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    padding: 8px 0 20px;
+  }
+
+  .video-style-post {
+    position: relative;
+    width: 100%;
+    height: calc(100svh - 145px);
+    min-height: 480px;
+    max-height: 780px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: 0;
+    background: #101010;
+    box-shadow: none;
+    color: white;
+  }
+
+  .video-style-post .post-media {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    background: #101010;
+  }
+
+  .video-style-post .post-backdrop {
+    filter: blur(30px) brightness(.55);
+  }
+
+  .video-style-post .post-media .post-image {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: contain;
+  }
+
+  .video-style-post .post-head {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 5;
+    padding: 9px 12px;
+    border-radius: 30px;
+    background: rgba(0,0,0,.38);
+    color: white;
+    backdrop-filter: blur(10px);
+  }
+
+  .video-style-post .post-author,
+  .video-style-post .post-date {
+    color: white;
+  }
+
+  .video-style-post .post-caption {
+    position: absolute;
+    z-index: 5;
+    right: 75px;
+    bottom: 22px;
+    left: 14px;
+    padding: 12px;
+    border-radius: 12px;
+    background: linear-gradient(
+      transparent,
+      rgba(0,0,0,.55)
+    );
+    color: white;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .video-style-post .post-actions {
+    position: absolute;
+    z-index: 6;
+    right: 10px;
+    bottom: 80px;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .video-style-post .like-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    min-width: 52px;
+    min-height: 55px;
+    padding: 8px 5px;
+    border: 0;
+    border-radius: 15px;
+    background: rgba(0,0,0,.42);
+    color: white;
+    font-size: 11px;
+    backdrop-filter: blur(8px);
+  }
+
+  .video-style-post .like-count {
+    font-size: 10px;
+  }
+
+  .video-style-post .comments-section {
+    position: absolute;
+    z-index: 8;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    max-height: 48%;
+    overflow-y: auto;
+    padding: 15px;
+    border-radius: 18px 18px 0 0;
+    background: #fff;
+    color: #172638;
+  }
+
+  .video-style-post .comments-section:empty {
+    display: none;
+  }
+
+  .video-style-post .comments-title {
+    color: #172638;
+  }
+
+  .text-style-post {
+    margin: 12px;
+    border-radius: 18px;
+  }
+
+  .dynamic-nav:not([hidden]) {
+    position: fixed;
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    z-index: 500;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 4px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 18px;
+    background: rgba(15,20,29,.96);
+    box-shadow: 0 8px 30px rgba(0,0,0,.35);
+    backdrop-filter: blur(18px);
+  }
+
+  .dynamic-nav button {
+    color: #c4cbd3;
+  }
+
+  .dynamic-nav button.active {
+    background: rgba(32,184,164,.18);
+    color: #4ce0c7;
+  }
+
+  .floating-create {
+    bottom: 88px;
+  }
+}
