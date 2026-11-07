@@ -1,42 +1,88 @@
 import {
-  initializeApp, getApps, getApp
+  initializeApp,
+  getApps,
+  getApp
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
 
 import {
-  getAuth, onAuthStateChanged
+  getAuth,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
 
 import { firebaseConfig } from "./firebase-config.js";
 
 import {
-  getFirestore, collection, addDoc, onSnapshot,
-  query, orderBy, serverTimestamp, Timestamp,
-  deleteDoc, doc, setDoc, getDocs, getDoc
+  getFirestore,
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+  Timestamp,
+  deleteDoc,
+  doc,
+  setDoc,
+  getDocs,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+
+/* =====================================
+   PICSHARE STORIES 2.0
+===================================== */
+
+const app = getApps().length
+  ? getApp()
+  : initializeApp(firebaseConfig);
+
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const SUPABASE_URL = "https://rcfyzegwkopysdmrqiei.supabase.co";
-const SUPABASE_KEY = "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
+const SUPABASE_URL =
+  "https://rcfyzegwkopysdmrqiei.supabase.co";
+
+const SUPABASE_KEY =
+  "sb_publishable_qHS9O29gNmsP5NgsP10FpQ_zg7NpIES";
+
+const ADMIN_UID = "VXDMuU17gifoBqTkbpC55Xre9242";
+
+const DAY = 24 * 60 * 60 * 1000;
+const STORY_DURATION = 5000;
 
 const moments = document.getElementById("dynamicMoments");
 const appArea = document.getElementById("appArea");
 
 if (!moments || !appArea) {
-  console.error("PicShare Stories: required HTML elements are missing.");
+  console.error("PicShare Stories: Required elements missing.");
 } else {
+
   let currentUser = null;
   let stories = [];
   let stopStories = null;
+
   let viewerStories = [];
   let selectedStory = 0;
-  let storyTimer = null;
 
-  const DAY = 24 * 60 * 60 * 1000;
-  const STORY_DURATION = 5000;
-  const ADMIN_UID = "VXDMuU17gifoBqTkbpC55Xre9242";
+  let storyTimer = null;
+  let progressFrame = null;
+
+  let storyStartedAt = 0;
+  let elapsedBeforePause = 0;
+  let paused = false;
+
+  let membershipStatus = "active";
+  let membershipReady = false;
+
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+
+  /* =====================================
+     HELPERS
+  ===================================== */
+
+  const $ = id => document.getElementById(id);
 
   function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -49,99 +95,260 @@ if (!moments || !appArea) {
   }
 
   function showStatus(message) {
-    const element = document.getElementById("storyStatus");
-    if (element) element.textContent = message;
+    const element = $("storyStatus");
+
+    if (element) {
+      element.textContent = message;
+    }
   }
 
-  // STORY INTERFACE
+  function isAdmin() {
+    return !!currentUser &&
+      currentUser.uid === ADMIN_UID;
+  }
+
+  async function canInteract() {
+
+    if (!currentUser) return false;
+
+    if (isAdmin()) return true;
+
+    if (!membershipReady) {
+      showStatus("Checking your membership...");
+      return false;
+    }
+
+    return membershipStatus === "active";
+  }
+
+  async function refreshMembership() {
+
+    if (!currentUser) {
+      membershipReady = false;
+      membershipStatus = "active";
+      return;
+    }
+
+    if (isAdmin()) {
+      membershipStatus = "active";
+      membershipReady = true;
+      return;
+    }
+
+    try {
+
+      const membershipDoc = await getDoc(
+        doc(db, "membership_status", currentUser.uid)
+      );
+
+      membershipStatus = membershipDoc.exists()
+        ? String(
+            membershipDoc.data().status || "active"
+          ).toLowerCase()
+        : "active";
+
+      membershipReady = true;
+
+    } catch (error) {
+
+      console.error("Membership check failed:", error);
+
+      membershipReady = false;
+    }
+  }
+
+
+  /* =====================================
+     STORY INTERFACE
+  ===================================== */
 
   const storySection =
-    moments.closest("#momentsSection") || moments.parentElement;
+    moments.closest("#momentsSection") ||
+    moments.parentElement;
 
   storySection.insertAdjacentHTML("beforeend", `
+
     <div class="story-create-area">
+
       <button id="addStoryBtn" type="button">
+
         <span>＋</span>
+
         <strong>Add your story</strong>
+
       </button>
-      <input id="storyFile" type="file"
-        accept="image/jpeg,image/png,image/webp" hidden>
-      <p id="storyStatus" role="status" aria-live="polite"></p>
+
+      <input
+        id="storyFile"
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden
+      >
+
+      <p
+        id="storyStatus"
+        role="status"
+        aria-live="polite">
+      </p>
+
     </div>
+
   `);
 
+
   document.body.insertAdjacentHTML("beforeend", `
+
     <div id="storyViewer" class="story-viewer" hidden>
-      <button id="storyClose" class="story-close" type="button">×</button>
+
+      <button
+        id="storyClose"
+        class="story-close"
+        type="button"
+        aria-label="Close stories">
+        ×
+      </button>
 
       <div class="story-viewer-card">
-        <div class="story-progress">
-          <span id="storyProgress"></span>
+
+        <div
+          id="storyProgressContainer"
+          class="story-progress">
         </div>
 
         <div id="storyOwner" class="story-owner"></div>
-        <img id="storyImage" alt="PicShare story">
+
+        <img
+          id="storyImage"
+          alt="PicShare story"
+          draggable="false"
+        >
 
         <div class="story-controls">
-          <button id="storyPrevious" type="button">‹</button>
-          <button id="storyNext" type="button">›</button>
+
+          <button
+            id="storyPrevious"
+            type="button"
+            aria-label="Previous story">
+            ‹
+          </button>
+
+          <button
+            id="storyNext"
+            type="button"
+            aria-label="Next story">
+            ›
+          </button>
+
         </div>
 
         <div class="story-actions">
-          <button id="storyReact" type="button">❤️ React</button>
-          <button id="storyViewers" type="button" hidden>Viewers</button>
+
+          <button id="storyReact" type="button">
+            ❤️ React
+          </button>
+
+          <button
+            id="storyViewers"
+            type="button"
+            hidden>
+            Viewers
+          </button>
+
         </div>
 
         <div id="storyViewCount" class="story-view-count"></div>
 
-        <button id="deleteStoryBtn" class="story-delete"
-          type="button" hidden>Delete story</button>
+        <button
+          id="deleteStoryBtn"
+          class="story-delete"
+          type="button"
+          hidden>
+          Delete story
+        </button>
+
       </div>
+
     </div>
 
+
     <div id="storyViewersModal" class="story-modal" hidden>
+
       <div class="story-modal-card">
-        <button id="closeViewers" type="button">Close</button>
+
+        <button id="closeViewers" type="button">
+          Close
+        </button>
+
         <h3>Story viewers</h3>
-        <div id="storyViewersList">Loading viewers...</div>
+
+        <div id="storyViewersList">
+          Loading viewers...
+        </div>
+
       </div>
+
     </div>
+
   `);
+
+
+  /* =====================================
+     STORIES DESIGN
+  ===================================== */
 
   const style = document.createElement("style");
 
   style.textContent = `
+
     .moments-row {
       display:flex;
-      gap:14px;
+      gap:15px;
       overflow-x:auto;
-      padding:8px 2px 16px;
+      padding:12px 4px 18px;
+      scrollbar-width:none;
+    }
+
+    .moments-row::-webkit-scrollbar {
+      display:none;
     }
 
     .story-create-area {
-      margin:10px 0 15px;
+      margin:12px 0 16px;
     }
 
     #addStoryBtn {
       display:flex;
       align-items:center;
-      gap:10px;
-      padding:12px 16px;
-      border-radius:13px;
+      gap:12px;
+      padding:13px 18px;
+      border-radius:15px;
       border:1px solid #bcebe3;
-      background:#e3f8f4;
+      background:linear-gradient(135deg,#e3f8f4,#f1f0ff);
       color:#101b2d;
       cursor:pointer;
+      font-weight:700;
+      transition:.2s;
+    }
+
+    #addStoryBtn:hover {
+      transform:translateY(-2px);
+      box-shadow:0 7px 20px #159e8e22;
     }
 
     #addStoryBtn span {
-      font-size:25px;
+      font-size:28px;
       color:#159e8e;
+    }
+
+    #addStoryBtn:disabled {
+      opacity:.5;
+      cursor:not-allowed;
     }
 
     #storyStatus {
       font-size:13px;
-      margin-top:8px;
+      margin-top:9px;
+      color:#159e8e;
     }
 
     .story-person {
@@ -151,15 +358,28 @@ if (!moments || !appArea) {
       background:none;
       cursor:pointer;
       color:inherit;
+      padding:0;
+      transition:transform .2s;
+    }
+
+    .story-person:hover {
+      transform:translateY(-3px);
     }
 
     .story-ring {
-      width:70px;
-      height:70px;
+      width:72px;
+      height:72px;
       padding:3px;
       margin:auto;
       border-radius:50%;
-      background:linear-gradient(135deg,#20b8a4,#8165ef,#ff9d54);
+      background:conic-gradient(
+        #20b8a4,
+        #62d6c5,
+        #8165ef,
+        #ffad66,
+        #20b8a4
+      );
+      box-shadow:0 4px 15px #20b8a433;
     }
 
     .story-ring img,
@@ -183,7 +403,7 @@ if (!moments || !appArea) {
 
     .story-person-name {
       display:block;
-      margin-top:7px;
+      margin-top:8px;
       font-size:11px;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -201,11 +421,12 @@ if (!moments || !appArea) {
     .story-viewer {
       position:fixed;
       inset:0;
-      background:#080d16f5;
+      background:#080d16f7;
       z-index:9999;
       display:grid;
       place-items:center;
       padding:15px;
+      backdrop-filter:blur(10px);
     }
 
     .story-viewer[hidden],
@@ -215,17 +436,21 @@ if (!moments || !appArea) {
 
     .story-viewer-card {
       position:relative;
-      width:min(420px,100%);
-      height:min(760px,90vh);
+      width:min(430px,100%);
+      height:min(780px,92vh);
       background:#101b2d;
-      border-radius:18px;
+      border-radius:20px;
       overflow:hidden;
+      box-shadow:0 20px 70px #0008;
+      touch-action:pan-y;
     }
 
     .story-viewer-card > img {
       width:100%;
       height:100%;
       object-fit:contain;
+      user-select:none;
+      -webkit-user-drag:none;
     }
 
     .story-progress {
@@ -233,25 +458,34 @@ if (!moments || !appArea) {
       top:12px;
       left:12px;
       right:12px;
-      height:3px;
-      background:#ffffff55;
-      z-index:2;
+      display:flex;
+      gap:4px;
+      z-index:5;
     }
 
-    .story-progress span {
-      display:block;
-      width:0;
+    .story-progress-item {
+      height:4px;
+      flex:1;
+      background:#ffffff55;
+      border-radius:10px;
+      overflow:hidden;
+    }
+
+    .story-progress-fill {
       height:100%;
+      width:0%;
       background:white;
+      border-radius:10px;
     }
 
     .story-owner {
       position:absolute;
-      top:25px;
+      top:28px;
       left:15px;
       color:white;
-      z-index:2;
-      font-weight:700;
+      z-index:4;
+      font-weight:800;
+      text-shadow:0 2px 5px #0008;
     }
 
     .story-close {
@@ -266,23 +500,33 @@ if (!moments || !appArea) {
       width:42px;
       height:42px;
       font-size:28px;
+      cursor:pointer;
     }
 
     .story-controls {
       position:absolute;
-      inset:50px 0 100px;
+      inset:60px 0 100px;
       display:flex;
       justify-content:space-between;
       align-items:center;
+      z-index:3;
+      pointer-events:none;
     }
 
     .story-controls button {
-      width:45px;
+      width:25%;
       height:100%;
       border:0;
       background:transparent;
       color:white;
       font-size:42px;
+      cursor:pointer;
+      pointer-events:auto;
+      opacity:.65;
+    }
+
+    .story-controls button:hover {
+      opacity:1;
     }
 
     .story-actions {
@@ -293,18 +537,23 @@ if (!moments || !appArea) {
       display:flex;
       justify-content:center;
       gap:10px;
+      z-index:4;
     }
 
     .story-actions button,
     .story-delete,
     #closeViewers {
       border:0;
-      border-radius:10px;
-      padding:10px 14px;
+      border-radius:12px;
+      padding:11px 16px;
       background:#ffffffeb;
       color:#101b2d;
-      font-weight:700;
+      font-weight:800;
       cursor:pointer;
+    }
+
+    .story-actions button:disabled {
+      opacity:.5;
     }
 
     .story-view-count {
@@ -313,14 +562,16 @@ if (!moments || !appArea) {
       left:15px;
       color:white;
       font-size:12px;
+      z-index:4;
     }
 
     .story-delete {
       position:absolute;
-      top:60px;
+      top:65px;
       right:12px;
       background:#d94040;
       color:white;
+      z-index:5;
     }
 
     .story-modal {
@@ -334,13 +585,13 @@ if (!moments || !appArea) {
     }
 
     .story-modal-card {
-      width:min(380px,100%);
+      width:min(390px,100%);
       max-height:80vh;
       overflow:auto;
       background:white;
       color:#101b2d;
       padding:20px;
-      border-radius:16px;
+      border-radius:18px;
     }
 
     .story-viewer-row {
@@ -348,34 +599,66 @@ if (!moments || !appArea) {
       justify-content:space-between;
       align-items:center;
       gap:12px;
-      padding:12px 4px;
-      border-bottom:1px solid #ddd;
+      padding:13px 4px;
+      border-bottom:1px solid #eee;
+    }
+
+    .story-viewer-row img {
+      width:35px;
+      height:35px;
+      border-radius:50%;
+      object-fit:cover;
+    }
+
+    .story-viewer-info {
+      display:flex;
+      align-items:center;
+      gap:10px;
     }
 
     .viewer-heart {
       font-size:19px;
-      flex-shrink:0;
     }
 
     @media(max-width:600px) {
+
       .story-viewer {
         padding:0;
       }
 
       .story-viewer-card {
-        height:100%;
         width:100%;
-        border-radius:0;
+        height:100%;
         max-height:none;
+        border-radius:0;
       }
+
+      .story-controls {
+        inset:60px 0 110px;
+      }
+
     }
+
+    @media(prefers-reduced-motion:reduce) {
+
+      .story-person,
+      #addStoryBtn {
+        transition:none;
+      }
+
+    }
+
   `;
 
   document.head.appendChild(style);
 
-  // IMAGE UPLOAD
 
-  async function uploadStoryImage(user, file) {
+  /* =====================================
+     IMAGE UPLOAD
+  ===================================== */
+
+  async function uploadStoryImage(user,file) {
+
     const allowedTypes = [
       "image/jpeg",
       "image/png",
@@ -387,482 +670,1202 @@ if (!moments || !appArea) {
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      throw new Error("Your image must be smaller than 2 MB.");
+      throw new Error("Image must be smaller than 2 MB.");
     }
 
     const token = await user.getIdToken();
+
     const form = new FormData();
-    form.append("file", file, file.name);
+
+    form.append("file",file,file.name);
 
     const response = await fetch(
       `${SUPABASE_URL}/functions/v1/dynamic-function`,
       {
-        method: "POST",
-        headers: {
-          apikey: SUPABASE_KEY,
-          "x-firebase-token": token
+        method:"POST",
+        headers:{
+          apikey:SUPABASE_KEY,
+          "x-firebase-token":token
         },
-        body: form
+        body:form
       }
     );
 
-    const result = await response.json().catch(() => ({}));
+    const result = await response.json().catch(()=>({}));
 
     if (!response.ok || !result.publicUrl) {
-      throw new Error(result.error || "Image upload failed.");
+      throw new Error(
+        result.error || "Image upload failed."
+      );
     }
 
     return result.publicUrl;
   }
 
-  // COUNTDOWN
+
+  /* =====================================
+     STORY COUNTDOWN
+  ===================================== */
 
   function timeLeft(story) {
-    const expiry = story.expiresAt?.toMillis?.() || 0;
-    const remaining = Math.max(0, expiry - Date.now());
 
-    const hours = Math.floor(remaining / 3600000);
-    const minutes = Math.floor((remaining % 3600000) / 60000);
+    const expiry =
+      story.expiresAt?.toMillis?.() || 0;
 
-    if (hours > 0) return `${hours}h ${minutes}m left`;
+    const remaining = Math.max(
+      0,
+      expiry-Date.now()
+    );
+
+    const hours = Math.floor(
+      remaining/3600000
+    );
+
+    const minutes = Math.floor(
+      (remaining%3600000)/60000
+    );
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m left`;
+    }
+
     return `${minutes}m left`;
   }
 
-  // RENDER STORIES
+
+  /* =====================================
+     RENDER STORIES
+  ===================================== */
 
   function renderStories() {
+
     const activeStories = stories.filter(story =>
+
       (story.expiresAt?.toMillis?.() || 0) > Date.now()
+
     );
 
     moments.innerHTML = "";
 
     if (!activeStories.length) {
+
       moments.innerHTML = `
-        <p class="muted">No active stories yet. Share the first one!</p>
+        <p class="muted">
+          No active stories yet. Share the first one!
+        </p>
       `;
+
       return;
     }
 
     const grouped = new Map();
 
     activeStories.forEach(story => {
-      if (!grouped.has(story.uid)) grouped.set(story.uid, []);
+
+      if (!grouped.has(story.uid)) {
+        grouped.set(story.uid,[]);
+      }
+
       grouped.get(story.uid).push(story);
+
     });
 
     grouped.forEach(items => {
+
       const latest = items[0];
 
       const avatar = latest.photoURL
         ? `<img src="${escapeHTML(latest.photoURL)}" alt="">`
         : `<span class="story-initial">${
-            escapeHTML((latest.name || "P").charAt(0).toUpperCase())
+            escapeHTML(
+              (latest.name || "P").charAt(0).toUpperCase()
+            )
           }</span>`;
 
       const button = document.createElement("button");
+
       button.className = "story-person";
       button.type = "button";
 
       button.innerHTML = `
-        <div class="story-ring">${avatar}</div>
+
+        <div class="story-ring">
+          ${avatar}
+        </div>
+
         <span class="story-person-name">
           ${escapeHTML(latest.name || "Member")}
         </span>
-        <small class="story-countdown">${timeLeft(latest)}</small>
+
+        <small class="story-countdown">
+          ${timeLeft(latest)}
+        </small>
+
       `;
 
-      button.addEventListener("click", () => openStory(items, 0));
+      button.addEventListener("click",() => {
+
+        openStory(items,0);
+
+      });
+
       moments.appendChild(button);
+
     });
+
   }
 
-  // RECORD VIEW
+
+  /* =====================================
+     RECORD STORY VIEW
+  ===================================== */
 
   async function recordView(story) {
-    if (!currentUser || currentUser.uid === story.uid) return;
+
+    if (!currentUser) return;
+
+    if (currentUser.uid === story.uid) return;
 
     const viewRef = doc(
-      db, "stories", story.id, "views", currentUser.uid
+      db,
+      "stories",
+      story.id,
+      "views",
+      currentUser.uid
     );
 
-    await setDoc(viewRef, {
-      uid: currentUser.uid,
-      name: currentUser.displayName || "PicShare member",
-      createdAt: serverTimestamp()
+    await setDoc(viewRef,{
+
+      uid:currentUser.uid,
+
+      name:currentUser.displayName || "PicShare member",
+
+      photoURL:currentUser.photoURL || "",
+
+      createdAt:serverTimestamp()
+
     });
+
   }
 
-  // VIEW COUNT
+
+  /* =====================================
+     UPDATE VIEW COUNT
+  ===================================== */
 
   async function updateViewCount(story) {
-    const countElement = document.getElementById("storyViewCount");
-    const viewersButton = document.getElementById("storyViewers");
+
+    const countElement = $("storyViewCount");
+
+    const viewersButton = $("storyViewers");
 
     try {
-      const [viewsSnapshot, reactionsSnapshot] = await Promise.all([
-        getDocs(collection(db, "stories", story.id, "views")),
-        getDocs(collection(db, "stories", story.id, "reactions"))
+
+      const [views,reactions] = await Promise.all([
+
+        getDocs(
+          collection(db,"stories",story.id,"views")
+        ),
+
+        getDocs(
+          collection(db,"stories",story.id,"reactions")
+        )
+
       ]);
 
       countElement.textContent =
-        `${viewsSnapshot.size} views · ${reactionsSnapshot.size} reactions`;
+        `${views.size} views · ${reactions.size} reactions`;
 
       viewersButton.hidden =
         !currentUser ||
-        (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID);
+        (
+          currentUser.uid !== story.uid &&
+          !isAdmin()
+        );
 
-    } catch (error) {
-      console.error("Could not load story details:", error);
+    } catch(error) {
+
+      console.error(error);
+
       countElement.textContent = "";
+
       viewersButton.hidden = true;
+
     }
+
   }
 
-  // VIEWERS LIST WITH HEARTS BESIDE REACTORS
+
+  /* =====================================
+     VIEWERS LIST
+  ===================================== */
 
   async function showViewers() {
+
     const story = viewerStories[selectedStory];
 
-    if (!story) return;
+    if (!story || !currentUser) return;
 
     if (
-      !currentUser ||
-      (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID)
+      currentUser.uid !== story.uid &&
+      !isAdmin()
     ) return;
 
-    const modal = document.getElementById("storyViewersModal");
-    const list = document.getElementById("storyViewersList");
+    const modal = $("storyViewersModal");
+
+    const list = $("storyViewersList");
 
     modal.hidden = false;
+
     list.textContent = "Loading viewers...";
 
     try {
-      const [viewsSnapshot, reactionsSnapshot] = await Promise.all([
-        getDocs(collection(db, "stories", story.id, "views")),
-        getDocs(collection(db, "stories", story.id, "reactions"))
+
+      const [views,reactions] = await Promise.all([
+
+        getDocs(
+          collection(db,"stories",story.id,"views")
+        ),
+
+        getDocs(
+          collection(db,"stories",story.id,"reactions")
+        )
+
       ]);
 
       const reactedUsers = new Set(
-        reactionsSnapshot.docs.map(item => item.id)
+        reactions.docs.map(item=>item.id)
       );
 
       list.innerHTML = "";
 
-      if (viewsSnapshot.empty) {
-        list.textContent = "Nobody has viewed this story yet.";
+      if (views.empty) {
+
+        list.textContent =
+          "Nobody has viewed this story yet.";
+
         return;
       }
 
-      viewsSnapshot.forEach(item => {
+      views.forEach(item=>{
+
         const data = item.data();
-        const reacted = reactedUsers.has(item.id);
 
         const row = document.createElement("div");
+
         row.className = "story-viewer-row";
 
+        const info = document.createElement("div");
+
+        info.className = "story-viewer-info";
+
+        if (data.photoURL) {
+
+          const image = document.createElement("img");
+
+          image.src = data.photoURL;
+
+          image.alt = "";
+
+          info.appendChild(image);
+
+        }
+
         const name = document.createElement("span");
-        name.textContent = data.name || "PicShare member";
 
-        row.appendChild(name);
+        name.textContent =
+          data.name || "PicShare member";
 
-        if (reacted) {
+        info.appendChild(name);
+
+        row.appendChild(info);
+
+        if (reactedUsers.has(item.id)) {
+
           const heart = document.createElement("span");
+
           heart.className = "viewer-heart";
+
           heart.textContent = "❤️";
-          heart.title = "Reacted to this story";
+
           row.appendChild(heart);
+
         }
 
         list.appendChild(row);
+
       });
 
-    } catch (error) {
-      console.error("Could not load viewers:", error);
-      list.textContent = "Could not load viewers: " + error.message;
+    } catch(error) {
+
+      console.error(error);
+
+      list.textContent =
+        "Could not load viewers.";
+
     }
+
   }
 
-  // REACT TO STORY + NOTIFY STORY OWNER
 
-async function reactToStory() {
-  const story = viewerStories[selectedStory];
-  const button = document.getElementById("storyReact");
+  /* =====================================
+     REACT TO STORY
+  ===================================== */
 
-  if (!currentUser || !story) return;
+  async function reactToStory() {
 
-  if (currentUser.uid === story.uid) {
-    showStatus("You cannot react to your own story.");
-    return;
-  }
+    const story = viewerStories[selectedStory];
 
-  button.disabled = true;
-  button.textContent = "Saving...";
+    const button = $("storyReact");
 
-  try {
-    const reactionRef = doc(
-      db,
-      "stories",
-      story.id,
-      "reactions",
-      currentUser.uid
-    );
+    if (!currentUser || !story) return;
 
-    // Check whether this user has already reacted
-    const existingReaction = await getDoc(reactionRef);
+    if (currentUser.uid === story.uid) {
 
-    if (existingReaction.exists()) {
-      button.textContent = "❤️ Reacted";
-      showStatus("You have already reacted to this story.");
+      showStatus("You cannot react to your own story.");
+
       return;
+
     }
 
-    const actorName =
-      currentUser.displayName || "PicShare member";
+    if (!(await canInteract())) {
 
-    // Save the story reaction
-    await setDoc(reactionRef, {
-      uid: currentUser.uid,
-      name: actorName,
-      emoji: "❤️",
-      createdAt: serverTimestamp()
+      showStatus(
+        "Your membership does not allow reactions."
+      );
+
+      return;
+
+    }
+
+    button.disabled = true;
+
+    button.textContent = "Saving...";
+
+    try {
+
+      const reactionRef = doc(
+        db,
+        "stories",
+        story.id,
+        "reactions",
+        currentUser.uid
+      );
+
+      const existing = await getDoc(reactionRef);
+
+      if (existing.exists()) {
+
+        button.textContent = "❤️ Reacted";
+
+        showStatus(
+          "You have already reacted to this story."
+        );
+
+        return;
+
+      }
+
+      const actorName =
+        currentUser.displayName || "PicShare member";
+
+      await setDoc(reactionRef,{
+
+        uid:currentUser.uid,
+
+        name:actorName,
+
+        emoji:"❤️",
+
+        createdAt:serverTimestamp()
+
+      });
+
+      await addDoc(
+        collection(
+          db,
+          "users",
+          story.uid,
+          "notifications"
+        ),
+        {
+
+          actorUid:currentUser.uid,
+
+          actorName,
+
+          type:"story_reaction",
+
+          storyId:story.id,
+
+          read:false,
+
+          createdAt:serverTimestamp()
+
+        }
+      );
+
+      button.textContent = "❤️ Reacted";
+
+      showStatus("Reaction sent!");
+
+      await updateViewCount(story);
+
+    } catch(error) {
+
+      console.error(error);
+
+      showStatus(
+        "Could not send reaction. Please try again."
+      );
+
+    } finally {
+
+      button.disabled = false;
+
+    }
+
+  }
+
+
+  /* =====================================
+     PROGRESS INDICATORS
+  ===================================== */
+
+  function renderProgress() {
+
+    const container = $("storyProgressContainer");
+
+    container.innerHTML = "";
+
+    viewerStories.forEach((story,index)=>{
+
+      const item = document.createElement("div");
+
+      item.className = "story-progress-item";
+
+      const fill = document.createElement("div");
+
+      fill.className = "story-progress-fill";
+
+      if (index < selectedStory) {
+
+        fill.style.width = "100%";
+
+      } else if (index === selectedStory) {
+
+        fill.id = "activeStoryProgress";
+
+      }
+
+      item.appendChild(fill);
+
+      container.appendChild(item);
+
     });
 
-    // Notify the story owner
-await addDoc(
-  collection(db, "users", story.uid, "notifications"),
-  {
-    actorUid: currentUser.uid,
-    actorName: actorName,
-    type: "story_reaction",
-    storyId: story.id,
-    read: false,
-    createdAt: serverTimestamp()
   }
-);
 
-  } finally {
-    button.disabled = false;
-  }
-}
 
-  // OPEN STORY
+  /* =====================================
+     STORY TIMER
+  ===================================== */
 
-  async function openStory(items, index) {
-    if (!items.length || index < 0 || index >= items.length) return;
+  function stopStoryTimer() {
 
     clearTimeout(storyTimer);
 
+    cancelAnimationFrame(progressFrame);
+
+    storyTimer = null;
+
+    progressFrame = null;
+
+  }
+
+  function startStoryTimer() {
+
+    stopStoryTimer();
+
+    paused = false;
+
+    elapsedBeforePause = 0;
+
+    storyStartedAt = performance.now();
+
+    const fill = $("activeStoryProgress");
+
+    if (!fill) return;
+
+    function animate() {
+
+      if (paused) return;
+
+      const elapsed =
+        elapsedBeforePause +
+        (performance.now()-storyStartedAt);
+
+      const progress = Math.min(
+        100,
+        elapsed/STORY_DURATION*100
+      );
+
+      fill.style.width = `${progress}%`;
+
+      if (progress >= 100) {
+
+        nextStory();
+
+        return;
+
+      }
+
+      progressFrame = requestAnimationFrame(animate);
+
+    }
+
+    progressFrame = requestAnimationFrame(animate);
+
+    storyTimer = setTimeout(
+      nextStory,
+      STORY_DURATION
+    );
+
+  }
+
+  function pauseStory() {
+
+    if (paused || !viewerStories.length) return;
+
+    paused = true;
+
+    elapsedBeforePause +=
+      performance.now()-storyStartedAt;
+
+    clearTimeout(storyTimer);
+
+    cancelAnimationFrame(progressFrame);
+
+  }
+
+  function resumeStory() {
+
+    if (!paused || !viewerStories.length) return;
+
+    paused = false;
+
+    storyStartedAt = performance.now();
+
+    startResumeTimer();
+
+  }
+
+  function startResumeTimer() {
+
+    stopStoryTimer();
+
+    storyStartedAt = performance.now();
+
+    const fill = $("activeStoryProgress");
+
+    const remaining =
+      STORY_DURATION-elapsedBeforePause;
+
+    function animate() {
+
+      if (paused) return;
+
+      const elapsed =
+        elapsedBeforePause +
+        performance.now()-storyStartedAt;
+
+      fill.style.width =
+        `${Math.min(100,elapsed/STORY_DURATION*100)}%`;
+
+      if (elapsed >= STORY_DURATION) {
+
+        nextStory();
+
+        return;
+
+      }
+
+      progressFrame =
+        requestAnimationFrame(animate);
+
+    }
+
+    progressFrame =
+      requestAnimationFrame(animate);
+
+    storyTimer = setTimeout(
+      nextStory,
+      remaining
+    );
+
+  }
+
+
+  /* =====================================
+     OPEN STORY
+  ===================================== */
+
+  async function openStory(items,index) {
+
+    if (
+      !items.length ||
+      index < 0 ||
+      index >= items.length
+    ) return;
+
+    stopStoryTimer();
+
     viewerStories = items;
+
     selectedStory = index;
 
     const story = viewerStories[selectedStory];
 
-    document.getElementById("storyImage").src = story.imageUrl;
+    if (
+      (story.expiresAt?.toMillis?.() || 0) <= Date.now()
+    ) {
 
-    document.getElementById("storyOwner").textContent =
-      story.name || "PicShare member";
+      nextStory();
 
-    const deleteButton = document.getElementById("deleteStoryBtn");
+      return;
 
-    deleteButton.hidden = !currentUser ||
-      (currentUser.uid !== story.uid && currentUser.uid !== ADMIN_UID);
-
-    deleteButton.onclick = async () => {
-      if (!confirm("Delete this story?")) return;
-
-      try {
-        await deleteDoc(doc(db, "stories", story.id));
-        closeStory();
-      } catch (error) {
-        alert("Could not delete story: " + error.message);
-      }
-    };
-
-    const reactButton = document.getElementById("storyReact");
-    reactButton.textContent = "❤️ React";
-    reactButton.disabled = false;
-
-    if (currentUser && currentUser.uid !== story.uid) {
-      try {
-        const reactionRef = doc(
-          db, "stories", story.id, "reactions", currentUser.uid
-        );
-
-        const existingReaction = await getDoc(reactionRef);
-
-        if (existingReaction.exists()) {
-          reactButton.textContent = "❤️ Reacted";
-        }
-      } catch (error) {
-        console.error("Could not check reaction:", error);
-      }
     }
 
-    document.getElementById("storyViewers").hidden = true;
-    document.getElementById("storyViewer").hidden = false;
+    $("storyImage").src = story.imageUrl;
 
-    const progress = document.getElementById("storyProgress");
-    progress.style.transition = "none";
-    progress.style.width = "0%";
+    $("storyOwner").textContent =
+      story.name || "PicShare member";
 
-    requestAnimationFrame(() => {
-      progress.style.transition = `width ${STORY_DURATION}ms linear`;
-      progress.style.width = "100%";
-    });
+    const deleteButton = $("deleteStoryBtn");
+
+    deleteButton.hidden =
+      !currentUser ||
+      (
+        currentUser.uid !== story.uid &&
+        !isAdmin()
+      );
+
+    deleteButton.onclick = async()=>{
+
+      if (!confirm("Delete this story?")) return;
+
+      deleteButton.disabled = true;
+
+      try {
+
+        await deleteDoc(
+          doc(db,"stories",story.id)
+        );
+
+        closeStory();
+
+        showStatus("Story deleted.");
+
+      } catch(error) {
+
+        alert("Could not delete story: "+error.message);
+
+      } finally {
+
+        deleteButton.disabled = false;
+
+      }
+
+    };
+
+
+    const reactButton = $("storyReact");
+
+    reactButton.textContent = "❤️ React";
+
+    reactButton.disabled = false;
+
+    reactButton.hidden =
+      !currentUser ||
+      currentUser.uid === story.uid;
+
+    if (
+      currentUser &&
+      currentUser.uid !== story.uid
+    ) {
+
+      try {
+
+        const reactionRef = doc(
+          db,
+          "stories",
+          story.id,
+          "reactions",
+          currentUser.uid
+        );
+
+        const existing =
+          await getDoc(reactionRef);
+
+        if (existing.exists()) {
+
+          reactButton.textContent =
+            "❤️ Reacted";
+
+        }
+
+      } catch(error) {
+
+        console.error(error);
+
+      }
+
+    }
+
+    $("storyViewer").hidden = false;
+
+    renderProgress();
 
     try {
+
       await recordView(story);
-    } catch (error) {
-      console.error("Could not record story view:", error);
+
+    } catch(error) {
+
+      console.error("View recording failed:",error);
+
     }
 
     await updateViewCount(story);
 
-    storyTimer = setTimeout(() => {
-      if (selectedStory < viewerStories.length - 1) {
-        openStory(viewerStories, selectedStory + 1);
-      } else {
-        closeStory();
-      }
-    }, STORY_DURATION);
+    startStoryTimer();
+
   }
+
+
+  /* =====================================
+     CLOSE STORY
+  ===================================== */
 
   function closeStory() {
-    clearTimeout(storyTimer);
 
-    document.getElementById("storyViewer").hidden = true;
-    document.getElementById("storyImage").src = "";
+    stopStoryTimer();
+
+    $("storyViewer").hidden = true;
+
+    $("storyImage").src = "";
+
+    $("storyViewersModal").hidden = true;
 
     viewerStories = [];
+
+    selectedStory = 0;
+
+    paused = false;
+
   }
 
+
+  /* =====================================
+     STORY NAVIGATION
+  ===================================== */
+
   function nextStory() {
-    if (selectedStory < viewerStories.length - 1) {
-      openStory(viewerStories, selectedStory + 1);
+
+    if (!viewerStories.length) return;
+
+    if (
+      selectedStory <
+      viewerStories.length-1
+    ) {
+
+      openStory(
+        viewerStories,
+        selectedStory+1
+      );
+
     } else {
+
       closeStory();
+
     }
+
   }
 
   function previousStory() {
+
+    if (!viewerStories.length) return;
+
     if (selectedStory > 0) {
-      openStory(viewerStories, selectedStory - 1);
+
+      openStory(
+        viewerStories,
+        selectedStory-1
+      );
+
     }
+
   }
 
-  // BUTTON EVENTS
 
-  document.getElementById("storyClose")
-    .addEventListener("click", closeStory);
+  /* =====================================
+     TOUCH NAVIGATION
+  ===================================== */
 
-  document.getElementById("storyNext")
-    .addEventListener("click", nextStory);
+  const storyCard = document.querySelector(
+    ".story-viewer-card"
+  );
 
-  document.getElementById("storyPrevious")
-    .addEventListener("click", previousStory);
+  storyCard.addEventListener(
+    "touchstart",
+    event=>{
 
-  document.getElementById("storyReact")
-    .addEventListener("click", reactToStory);
+      const touch = event.changedTouches[0];
 
-  document.getElementById("storyViewers")
-    .addEventListener("click", showViewers);
+      touchStartX = touch.clientX;
 
-  document.getElementById("closeViewers")
-    .addEventListener("click", () => {
-      document.getElementById("storyViewersModal").hidden = true;
-    });
+      touchStartY = touch.clientY;
 
-  document.getElementById("addStoryBtn")
-    .addEventListener("click", () => {
-      if (!currentUser) {
-        alert("Please sign in first.");
-        return;
+    },
+    {passive:true}
+  );
+
+  storyCard.addEventListener(
+    "touchend",
+    event=>{
+
+      const touch = event.changedTouches[0];
+
+      const differenceX =
+        touch.clientX-touchStartX;
+
+      const differenceY =
+        touch.clientY-touchStartY;
+
+      if (
+        Math.abs(differenceX)>60 &&
+        Math.abs(differenceX)>Math.abs(differenceY)
+      ) {
+
+        if (differenceX<0) {
+
+          nextStory();
+
+        } else {
+
+          previousStory();
+
+        }
+
       }
 
-      document.getElementById("storyFile").click();
-    });
+    },
+    {passive:true}
+  );
 
-  // UPLOAD STORY
 
-  document.getElementById("storyFile")
-    .addEventListener("change", async event => {
-      const file = event.target.files?.[0];
+  /* =====================================
+     HOLD TO PAUSE
+  ===================================== */
+
+  storyCard.addEventListener(
+    "pointerdown",
+    event=>{
+
+      if (
+        event.target.closest("button")
+      ) return;
+
+      pauseStory();
+
+    }
+  );
+
+  storyCard.addEventListener(
+    "pointerup",
+    resumeStory
+  );
+
+  storyCard.addEventListener(
+    "pointercancel",
+    resumeStory
+  );
+
+  storyCard.addEventListener(
+    "pointerleave",
+    resumeStory
+  );
+
+
+  /* =====================================
+     KEYBOARD NAVIGATION
+  ===================================== */
+
+  document.addEventListener("keydown",event=>{
+
+    if ($("storyViewer").hidden) return;
+
+    if (event.key === "Escape") {
+
+      closeStory();
+
+    }
+
+    if (event.key === "ArrowRight") {
+
+      nextStory();
+
+    }
+
+    if (event.key === "ArrowLeft") {
+
+      previousStory();
+
+    }
+
+  });
+
+
+  /* =====================================
+     BUTTON EVENTS
+  ===================================== */
+
+  $("storyClose").addEventListener(
+    "click",
+    closeStory
+  );
+
+  $("storyNext").addEventListener(
+    "click",
+    nextStory
+  );
+
+  $("storyPrevious").addEventListener(
+    "click",
+    previousStory
+  );
+
+  $("storyReact").addEventListener(
+    "click",
+    reactToStory
+  );
+
+  $("storyViewers").addEventListener(
+    "click",
+    showViewers
+  );
+
+  $("closeViewers").addEventListener(
+    "click",
+    ()=>{
+      $("storyViewersModal").hidden = true;
+    }
+  );
+
+
+  /* =====================================
+     ADD STORY BUTTON
+  ===================================== */
+
+  $("addStoryBtn").addEventListener(
+    "click",
+    async()=>{
+
+      if (!currentUser) {
+
+        alert("Please sign in first.");
+
+        return;
+
+      }
+
+      await refreshMembership();
+
+      if (!(await canInteract())) {
+
+        showStatus(
+          "Your membership does not allow story uploads."
+        );
+
+        return;
+
+      }
+
+      $("storyFile").click();
+
+    }
+  );
+
+
+  /* =====================================
+     UPLOAD STORY
+  ===================================== */
+
+  $("storyFile").addEventListener(
+    "change",
+    async event=>{
+
+      const file =
+        event.target.files?.[0];
 
       if (!file || !currentUser) return;
 
-      const button = document.getElementById("addStoryBtn");
+      const button = $("addStoryBtn");
+
       button.disabled = true;
 
       showStatus("Uploading your story...");
 
       try {
-        const imageUrl = await uploadStoryImage(currentUser, file);
 
-        await addDoc(collection(db, "stories"), {
-          uid: currentUser.uid,
-          name: currentUser.displayName || "PicShare member",
-          photoURL: currentUser.photoURL || "",
-          imageUrl,
-          createdAt: serverTimestamp(),
-          expiresAt: Timestamp.fromMillis(Date.now() + DAY - 60000)
-        });
+        await refreshMembership();
 
-        showStatus("Your story has been shared!");
+        if (!(await canInteract())) {
 
-      } catch (error) {
-        console.error("Story upload failed:", error);
-        showStatus("Could not post story: " + error.message);
+          throw new Error(
+            "Your membership does not allow story uploads."
+          );
+
+        }
+
+        const imageUrl =
+          await uploadStoryImage(currentUser,file);
+
+        await addDoc(
+          collection(db,"stories"),
+          {
+
+            uid:currentUser.uid,
+
+            name:
+              currentUser.displayName ||
+              "PicShare member",
+
+            photoURL:
+              currentUser.photoURL || "",
+
+            imageUrl,
+
+            createdAt:serverTimestamp(),
+
+            expiresAt:Timestamp.fromMillis(
+              Date.now()+DAY
+            )
+
+          }
+        );
+
+        showStatus(
+          "Your story has been shared successfully!"
+        );
+
+      } catch(error) {
+
+        console.error("Story upload failed:",error);
+
+        showStatus(
+          "Could not post story: "+error.message
+        );
 
       } finally {
-        button.disabled = false;
+
+        button.disabled = !currentUser;
+
         event.target.value = "";
+
       }
-    });
 
-  // AUTHENTICATION AND LIVE STORIES
+    }
+  );
 
-  onAuthStateChanged(auth, user => {
+
+  /* =====================================
+     AUTHENTICATION
+  ===================================== */
+
+  onAuthStateChanged(auth,async user=>{
+
     currentUser = user;
 
-    document.getElementById("addStoryBtn").disabled = !user;
-
     if (stopStories) {
+
       stopStories();
+
       stopStories = null;
+
     }
 
     if (!user) {
+
+      membershipReady = false;
+
+      membershipStatus = "active";
+
       stories = [];
+
+      closeStory();
+
       renderStories();
+
+      $("addStoryBtn").disabled = true;
+
       return;
+
     }
 
+    $("addStoryBtn").disabled = false;
+
+    await refreshMembership();
+
     const storiesQuery = query(
-      collection(db, "stories"),
-      orderBy("createdAt", "desc")
+      collection(db,"stories"),
+      orderBy("createdAt","desc")
     );
 
     stopStories = onSnapshot(
       storiesQuery,
-      snapshot => {
-        stories = snapshot.docs.map(item => ({
-          id: item.id,
+      snapshot=>{
+
+        stories = snapshot.docs.map(item=>({
+
+          id:item.id,
+
           ...item.data()
+
         }));
 
         renderStories();
+
       },
-      error => {
-        console.error("Stories loading failed:", error);
-        showStatus("Stories could not load: " + error.message);
+      error=>{
+
+        console.error(
+          "Stories loading failed:",
+          error
+        );
+
+        showStatus(
+          "Stories could not load. Please try again."
+        );
+
       }
     );
+
   });
 
-  // UPDATE COUNTDOWN EVERY MINUTE
 
-  setInterval(() => {
-    if (currentUser) renderStories();
-  }, 60000);
+  /* =====================================
+     UPDATE COUNTDOWN
+  ===================================== */
+
+  setInterval(()=>{
+
+    if (currentUser) {
+
+      renderStories();
+
+    }
+
+  },60000);
+
 }
