@@ -867,7 +867,9 @@ function startFeed() {
               </form>`
             : "";
 
-          return `<article class="card post ${p.imageUrl ? "video-style-post" : "text-style-post"}">
+          return `<article
+  class="card post ${p.imageUrl ? "video-style-post" : "text-style-post"}"
+  data-creator-uid="${safe(p.uid)}">
   <div class="post-head">
     ${avatarHTML(p.name,p.photoURL,"mini-avatar")}
     <div>
