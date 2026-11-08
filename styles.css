@@ -3571,4 +3571,83 @@ html.dark-mode #addStoryBtn span {
 }
 
 /* END FINAL FIX */
+
+/* PICSHARE FOLLOW SYSTEM */
+
+.ps-follow-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.ps-follow-button {
+  border: 1px solid #20b8a4;
+  border-radius: 20px;
+  padding: 8px 15px;
+  background: #20b8a4;
+  color: #082c2b;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ps-follow-button.following-active {
+  background: transparent;
+  color: #108f80;
+}
+
+.ps-follower-count {
+  color: #7d8b99;
+  font-size: 10px;
+}
+
+.ps-follow-controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ps-feed-tab {
+  border: 1px solid #dce7e9;
+  border-radius: 20px;
+  padding: 9px 15px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ps-feed-tab.active {
+  background: #20b8a4;
+  color: #082c2b;
+  border-color: #20b8a4;
+}
+
+html.dark-mode .ps-follow-button.following-active {
+  color: #43d8c2;
+}
+
+html.dark-mode .ps-feed-tab {
+  border-color: #354960;
+  color: #e8f0f5;
+}
+
+html.dark-mode .ps-feed-tab.active {
+  background: #20b8a4;
+  color: #082c2b;
+}
+
+#psFollowingEmpty {
+  margin-top: 15px;
+}
+
+#feed .post[hidden] {
+  display: none !important;
+}
+
+/* END FOLLOW SYSTEM */
    
