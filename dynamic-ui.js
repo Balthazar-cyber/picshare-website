@@ -1869,3 +1869,73 @@ if (!moments || !appArea) {
   },60000);
 
 }
+
+    /* ==========================================
+   PICSHARE — DARK MODE CONTROLLER
+========================================== */
+
+(() => {
+  const STORAGE_KEY = "picshare-theme";
+
+  function applyTheme(theme) {
+    const dark = theme === "dark";
+
+    document.documentElement.classList.toggle("dark-mode", dark);
+
+    const button = document.getElementById("picshareThemeToggle");
+
+    if (button) {
+      button.textContent = dark ? "☀️" : "🌙";
+      button.title = dark ? "Switch to Light Mode" : "Switch to Dark Mode";
+      button.setAttribute("aria-label", button.title);
+    }
+  }
+
+  function initializeTheme() {
+    let savedTheme = "light";
+
+    try {
+      savedTheme = localStorage.getItem(STORAGE_KEY) || "light";
+    } catch (error) {
+      console.warn("PicShare could not read theme preference.");
+    }
+
+    applyTheme(savedTheme);
+
+    if (!document.getElementById("picshareThemeToggle")) {
+      const button = document.createElement("button");
+
+      button.id = "picshareThemeToggle";
+      button.type = "button";
+      button.textContent = savedTheme === "dark" ? "☀️" : "🌙";
+      button.title = "Switch theme";
+      button.setAttribute("aria-label", "Switch theme");
+
+      button.addEventListener("click", () => {
+        const isDark = document.documentElement.classList.contains("dark-mode");
+        const newTheme = isDark ? "light" : "dark";
+
+        try {
+          localStorage.setItem(STORAGE_KEY, newTheme);
+        } catch (error) {
+          console.warn("PicShare could not save theme preference.");
+        }
+
+        applyTheme(newTheme);
+      });
+
+      document.body.appendChild(button);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeTheme);
+  } else {
+    initializeTheme();
+  }
+})();
+
+/* END PICSHARE THEME CONTROLLER */
+
+
+
