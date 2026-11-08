@@ -3241,3 +3241,135 @@ textarea {
 }
 
 /* END COMMENT ALIGNMENT FIX */
+/* ==========================================
+   PICSHARE 2.0 — DARK MODE
+========================================== */
+
+html.dark-mode {
+  color-scheme: dark;
+}
+
+html.dark-mode body {
+  background: #0b1422 !important;
+  color: #e8f0f5 !important;
+}
+
+html.dark-mode .card,
+html.dark-mode .post,
+html.dark-mode .profile-card,
+html.dark-mode .edit-profile-card,
+html.dark-mode .about-card,
+html.dark-mode .notification-panel,
+html.dark-mode .profile-dropdown {
+  background: #172438 !important;
+  color: #e8f0f5 !important;
+  border-color: #293b50 !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.2);
+}
+
+html.dark-mode .topbar {
+  background: rgba(11,20,34,.96) !important;
+  border-color: #293b50 !important;
+}
+
+html.dark-mode h1,
+html.dark-mode h2,
+html.dark-mode h3,
+html.dark-mode h4,
+html.dark-mode p,
+html.dark-mode label,
+html.dark-mode strong {
+  color: #e8f0f5;
+}
+
+html.dark-mode small,
+html.dark-mode .muted,
+html.dark-mode .eyebrow {
+  color: #9aafc2 !important;
+}
+
+html.dark-mode input:not([type="file"]),
+html.dark-mode textarea,
+html.dark-mode select {
+  background: #101c2d !important;
+  color: #e8f0f5 !important;
+  border-color: #354960 !important;
+}
+
+html.dark-mode input::placeholder,
+html.dark-mode textarea::placeholder {
+  color: #8296aa !important;
+}
+
+html.dark-mode .comment-item {
+  border-color: #293b50 !important;
+}
+
+html.dark-mode .comment-avatar {
+  background: #24483f !important;
+  color: #5ce0c8 !important;
+}
+
+html.dark-mode .notification-item:hover {
+  background: #20344a !important;
+}
+
+html.dark-mode .empty {
+  background: #172c3a !important;
+  border-color: #28665f !important;
+}
+
+html.dark-mode .secondary-btn {
+  background: #20344a !important;
+  color: #e8f0f5 !important;
+  border-color: #354960 !important;
+}
+
+html.dark-mode .post,
+html.dark-mode .comments-section,
+html.dark-mode .comments-list {
+  color: #e8f0f5;
+}
+
+html.dark-mode a {
+  color: #51d9c2;
+}
+
+html.dark-mode .primary-btn {
+  color: #082c2b !important;
+}
+
+/* Theme toggle */
+
+#picshareThemeToggle {
+  position: fixed;
+  right: 18px;
+  bottom: 85px;
+  z-index: 9999;
+  width: 48px;
+  height: 48px;
+  border: 1px solid rgba(32,184,164,.4);
+  border-radius: 16px;
+  background: #172438;
+  color: #43d8c2;
+  font-size: 21px;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(0,0,0,.22);
+  transition: transform .2s ease, background .2s ease;
+}
+
+#picshareThemeToggle:active {
+  transform: scale(.92);
+}
+
+@media (max-width: 600px) {
+  #picshareThemeToggle {
+    right: 14px;
+    bottom: 75px;
+    width: 45px;
+    height: 45px;
+  }
+}
+
+/* END PICSHARE DARK MODE */
+   
