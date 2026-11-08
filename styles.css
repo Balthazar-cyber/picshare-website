@@ -3529,4 +3529,46 @@ html.dark-mode #dynamicMoments .story-countdown {
 }
 
 /* END TARGETED FIX */
+
+/* PICSHARE DARK MODE — FINAL READABILITY FIX */
+
+html.dark-mode .post .post-head .post-author {
+    color: #ffffff !important;
+    background: transparent !important;
+}
+
+html.dark-mode .post .post-head .post-date {
+    color: #c2d0dc !important;
+}
+
+html.dark-mode #feed .text-style-post {
+    background: #172438 !important;
+    color: #ffffff !important;
+}
+
+html.dark-mode #feed .text-style-post .post-caption {
+    color: #ffffff !important;
+    background: transparent !important;
+}
+
+html.dark-mode #feed .text-style-post .post-caption * {
+    color: #ffffff !important;
+}
+
+html.dark-mode #addStoryBtn {
+    background: #087568 !important;
+    color: #ffffff !important;
+    border: 1px solid #43d8c2 !important;
+}
+
+html.dark-mode #addStoryBtn strong {
+    color: #ffffff !important;
+}
+
+html.dark-mode #addStoryBtn span {
+    color: #ffffff !important;
+    background: #105c53 !important;
+}
+
+/* END FINAL FIX */
    
