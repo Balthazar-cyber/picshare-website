@@ -3468,4 +3468,65 @@ html.dark-mode .post span {
 }
 
 /* END READABILITY FIX */
+
+/* =========================================
+   PICSHARE — TARGETED DARK MODE FIX
+========================================= */
+
+/* CREATOR NAME */
+html.dark-mode .post .post-author {
+    color: #ffffff !important;
+    font-weight: 800 !important;
+    opacity: 1 !important;
+}
+
+html.dark-mode .post .post-date {
+    color: #b8c9d8 !important;
+}
+
+/* TEXT-ONLY POSTS */
+html.dark-mode .post.text-style-post {
+    background: #172438 !important;
+    border-color: #34475c !important;
+}
+
+html.dark-mode .post.text-style-post .post-caption {
+    background: transparent !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    line-height: 1.8 !important;
+}
+
+/* CREATE STORY BUTTON */
+html.dark-mode #addStoryBtn {
+    background: #174b43 !important;
+    color: #ffffff !important;
+    border: 1px solid #43d8c2 !important;
+}
+
+html.dark-mode #addStoryBtn,
+html.dark-mode #addStoryBtn * {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+html.dark-mode #addStoryBtn span {
+    background: #087568 !important;
+    color: #ffffff !important;
+}
+
+/* STORY NAMES */
+html.dark-mode #dynamicMoments .story-person {
+    color: #ffffff !important;
+}
+
+html.dark-mode #dynamicMoments .story-person-name {
+    color: #ffffff !important;
+}
+
+html.dark-mode #dynamicMoments .story-countdown {
+    color: #65dfca !important;
+}
+
+/* END TARGETED FIX */
    
