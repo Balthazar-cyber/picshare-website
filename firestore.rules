@@ -63,7 +63,7 @@ service cloud.firestore {
 
     match /users/{userId} {
 
-      allow read: if signedIn()
+      allow read: if canView()
         && (request.auth.uid == userId || isAdmin());
 
       allow create: if signedIn()
