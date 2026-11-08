@@ -1937,5 +1937,55 @@ if (!moments || !appArea) {
 
 /* END PICSHARE THEME CONTROLLER */
 
+/* PICSHARE DARK MODE — FIXED CONTROLLER */
+
+(() => {
+  const button = document.getElementById("dynamicThemeBtn");
+  const key = "picshare-theme";
+
+  if (!button) {
+    console.error("PicShare theme button not found.");
+    return;
+  }
+
+  function setTheme(theme) {
+    const dark = theme === "dark";
+
+    document.documentElement.classList.toggle("dark-mode", dark);
+
+    button.hidden = false;
+    button.textContent = dark ? "☀️ Light Mode" : "🌙 Dark Mode";
+    button.setAttribute(
+      "aria-label",
+      dark ? "Switch to light mode" : "Switch to dark mode"
+    );
+  }
+
+  let savedTheme = "light";
+
+  try {
+    savedTheme = localStorage.getItem(key) || "light";
+  } catch (error) {
+    console.warn("Theme preference unavailable.");
+  }
+
+  setTheme(savedTheme);
+
+  button.addEventListener("click", () => {
+    const dark = document.documentElement.classList.contains("dark-mode");
+    const theme = dark ? "light" : "dark";
+
+    try {
+      localStorage.setItem(key, theme);
+    } catch (error) {
+      console.warn("Could not save theme preference.");
+    }
+
+    setTheme(theme);
+  });
+})();
+
+/* END DARK MODE FIX */
+
 
 
