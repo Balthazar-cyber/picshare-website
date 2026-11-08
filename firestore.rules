@@ -12,16 +12,10 @@ service cloud.firestore {
         && request.auth.uid == "VXDMuU17gifoBqTkbpC55Xre9242";
     }
 
-    function ownsDocument() {
-      return signedIn()
-        && resource.data.uid == request.auth.uid;
-    }
-
     function membershipPath(uid) {
       return /databases/$(database)/documents/membership_status/$(uid);
     }
 
-    // A user without a membership_status document is treated as active.
     function memberStatus(uid) {
       return exists(membershipPath(uid))
         ? get(membershipPath(uid)).data.status
@@ -44,8 +38,21 @@ service cloud.firestore {
         );
     }
 
-    // MEMBERSHIP STATUS: members can read only their own status;
-    // the administrator can read all statuses and change them.
+    function ownsDocument() {
+      return signedIn()
+        && resource.data.uid == request.auth.uid;
+    }
+
+    // FOLLOW RELATIONSHIP HELPERS
+
+    function followingPath(followerId, targetId) {
+      return /databases/$(database)/documents/users/$(followerId)/following/$(targetId);
+    }
+
+    function followersPath(targetId, followerId) {
+      return /databases/$(database)/documents/users/$(targetId)/followers/$(followerId);
+    }
+
     match /membership_status/{userId} {
       allow read: if signedIn()
         && (request.auth.uid == userId || isAdmin());
@@ -54,8 +61,8 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // USER PROFILES
     match /users/{userId} {
+
       allow read: if signedIn()
         && (request.auth.uid == userId || isAdmin());
 
@@ -71,32 +78,71 @@ service cloud.firestore {
 
       allow delete: if isAdmin();
 
-      // USER NOTIFICATIONS
+      // FOLLOWERS
+      match /followers/{followerId} {
+
+        allow read: if canView();
+
+        allow create: if canInteract()
+          && request.auth.uid == followerId
+          && followerId != userId
+          && request.resource.data.uid == followerId
+          && request.resource.data.followedUid == userId
+          && existsAfter(followingPath(followerId, userId));
+
+        allow delete: if canInteract()
+          && request.auth.uid == followerId
+          && exists(followersPath(userId, followerId))
+          && !existsAfter(followingPath(followerId, userId));
+
+        allow update: if false;
+      }
+
+      // FOLLOWING
+      match /following/{followingId} {
+
+        allow read: if canView();
+
+        allow create: if canInteract()
+          && request.auth.uid == userId
+          && followingId != userId
+          && request.resource.data.uid == userId
+          && request.resource.data.followedUid == followingId
+          && existsAfter(followersPath(followingId, userId));
+
+        allow delete: if canInteract()
+          && request.auth.uid == userId
+          && !existsAfter(followersPath(followingId, userId));
+
+        allow update: if false;
+      }
+
+      // NOTIFICATIONS
       match /notifications/{notificationId} {
+
         allow read: if signedIn()
           && request.auth.uid == userId
           && canView();
 
         allow create: if canInteract()
-  && request.resource.data.actorUid == request.auth.uid
-  && request.auth.uid != userId
-  && (
-    (
-      request.resource.data.type in ["like", "comment"]
-      && request.resource.data.postId is string
-      && get(
-        /databases/$(database)/documents/posts/$(request.resource.data.postId)
-      ).data.uid == userId
-    )
-    ||
-    (
-      request.resource.data.type == "story_reaction"
-      && request.resource.data.storyId is string
-      && get(
-        /databases/$(database)/documents/stories/$(request.resource.data.storyId)
-      ).data.uid == userId
-    )
-  );
+          && request.resource.data.actorUid == request.auth.uid
+          && request.auth.uid != userId
+          && request.resource.data.type in [
+            "like", "comment", "follow"
+          ]
+          && request.resource.data.actorName is string
+          && request.resource.data.read == false
+          && request.resource.data.createdAt is timestamp
+          && (
+            request.resource.data.type == "follow"
+            ||
+            (
+              request.resource.data.postId is string
+              && get(
+                /databases/$(database)/documents/posts/$(request.resource.data.postId)
+              ).data.uid == userId
+            )
+          );
 
         allow update: if signedIn()
           && request.auth.uid == userId
@@ -112,6 +158,7 @@ service cloud.firestore {
 
     // POSTS
     match /posts/{postId} {
+
       allow read: if canView();
 
       allow create: if canInteract()
@@ -123,8 +170,8 @@ service cloud.firestore {
       allow update, delete: if isAdmin()
         || (canInteract() && ownsDocument());
 
-      // POST LIKES
       match /likes/{userId} {
+
         allow read: if canView();
 
         allow create, update: if canInteract()
@@ -135,8 +182,8 @@ service cloud.firestore {
           && request.auth.uid == userId;
       }
 
-      // POST COMMENTS
       match /comments/{commentId} {
+
         allow read: if canView();
 
         allow create: if canInteract()
@@ -158,6 +205,7 @@ service cloud.firestore {
 
     // STORIES
     match /stories/{storyId} {
+
       allow read: if canView();
 
       allow create: if canInteract()
@@ -172,8 +220,8 @@ service cloud.firestore {
 
       allow update: if false;
 
-      // STORY VIEWS
       match /views/{userId} {
+
         allow create, update: if canInteract()
           && request.auth.uid == userId
           && request.resource.data.uid == request.auth.uid;
@@ -189,21 +237,20 @@ service cloud.firestore {
         allow delete: if false;
       }
 
-      // STORY REACTIONS
       match /reactions/{userId} {
+
         allow create, update: if canInteract()
           && request.auth.uid == userId
           && request.resource.data.uid == request.auth.uid
           && request.resource.data.emoji is string;
 
         allow read: if canView()
-  && (
-    request.auth.uid == userId
-    || get(
-      /databases/$(database)/documents/stories/$(storyId)
-    ).data.uid == request.auth.uid
-    || isAdmin()
-  );
+          && (
+            get(
+              /databases/$(database)/documents/stories/$(storyId)
+            ).data.uid == request.auth.uid
+            || isAdmin()
+          );
 
         allow delete: if false;
       }
