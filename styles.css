@@ -3402,4 +3402,70 @@ html.dark-mode .primary-btn {
     bottom: 75px;
   }
 }
+
+   /* =========================================
+   PICSHARE DARK MODE — TEXT VISIBILITY FIX
+========================================= */
+
+/* Creator names and post information */
+html.dark-mode .post strong,
+html.dark-mode .post-author,
+html.dark-mode .post-author strong,
+html.dark-mode .post-user-name,
+html.dark-mode .username,
+html.dark-mode .author-name,
+html.dark-mode .creator-name {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
+/* Text-only posts */
+html.dark-mode .text-style-post,
+html.dark-mode .text-style-post p,
+html.dark-mode .text-style-post strong,
+html.dark-mode .text-post,
+html.dark-mode .text-post p {
+    background-color: #172438 !important;
+    color: #ffffff !important;
+}
+
+html.dark-mode .text-style-post *,
+html.dark-mode .text-post * {
+    color: #ffffff !important;
+}
+
+/* Story creation button */
+html.dark-mode #createStoryBtn,
+html.dark-mode .create-story-btn,
+html.dark-mode .story-create-btn,
+html.dark-mode .add-story-btn,
+html.dark-mode [data-action="create-story"] {
+    background: #24483f !important;
+    color: #ffffff !important;
+    border-color: #20b8a4 !important;
+    opacity: 1 !important;
+}
+
+html.dark-mode #createStoryBtn *,
+html.dark-mode .create-story-btn *,
+html.dark-mode .story-create-btn *,
+html.dark-mode .add-story-btn * {
+    color: #ffffff !important;
+}
+
+/* Story button hover */
+html.dark-mode #createStoryBtn:hover,
+html.dark-mode .create-story-btn:hover,
+html.dark-mode .story-create-btn:hover {
+    background: #087568 !important;
+    color: #ffffff !important;
+}
+
+/* General post text */
+html.dark-mode .post p,
+html.dark-mode .post span {
+    opacity: 1;
+}
+
+/* END READABILITY FIX */
    
