@@ -379,7 +379,7 @@ function startFollowSystem() {
 
 /* AUTHENTICATION */
 
-auth.onAuthStateChanged(async user => {
+onAuthStateChanged(auth, async user => {
   if (!user) {
     followingIds.clear();
     followingFeed = false;
