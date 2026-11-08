@@ -3372,4 +3372,34 @@ html.dark-mode .primary-btn {
 }
 
 /* END PICSHARE DARK MODE */
+
+/* PICSHARE EXISTING THEME BUTTON */
+
+#dynamicThemeBtn {
+  position: fixed;
+  right: 18px;
+  bottom: 85px;
+  z-index: 10000;
+  display: block;
+  padding: 12px 17px;
+  border: 1px solid #20b8a4;
+  border-radius: 15px;
+  background: #172438;
+  color: #43d8c2;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 25px rgba(0,0,0,.2);
+}
+
+#dynamicThemeBtn[hidden] {
+  display: none !important;
+}
+
+@media(max-width:600px) {
+  #dynamicThemeBtn {
+    right: 12px;
+    bottom: 75px;
+  }
+}
    
