@@ -415,7 +415,7 @@ async function renderConnectionTab() {
   list.innerHTML = members.map(memberButton).join("");
 }
 
-async function openProfile(uid, seed = {}) {
+async function openProfile(uid, seed = {}, startTab = "followers") {
   if (!uid) return;
 
   installProfileStyles();
