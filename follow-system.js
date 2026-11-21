@@ -315,14 +315,17 @@ function ensureProfileModal() {
   });
 
   $("psConnectionList").addEventListener("click", event => {
-    const item = event.target.closest("[data-member-uid]");
-    if (!item) return;
+  const item = event.target.closest("button[data-member-uid]");
+  if (!item) return;
 
-    openProfile(item.dataset.memberUid, {
-      name: item.dataset.memberName || "PicShare member",
-      photoURL: item.dataset.memberPhoto || ""
-    });
-  });
+  event.stopPropagation();
+
+  const uid = item.dataset.memberUid;
+  const name = item.dataset.memberName || "PicShare member";
+  const photoURL = item.dataset.memberPhoto || "";
+
+  openProfile(uid, { name, photoURL }).catch(showConnectionError);
+});
 
   $("psModalFollowWrap").addEventListener("click", event => {
     const button = event.target.closest("[data-follow-uid]");
